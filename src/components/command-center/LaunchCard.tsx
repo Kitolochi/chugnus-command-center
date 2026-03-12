@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
-import { Button, Input, Dialog } from '../ui'
+import { Button, Dialog } from '../ui'
 import { Rocket, FolderPlus, FolderOpen, X } from 'lucide-react'
 
 export default function LaunchCard() {
@@ -55,14 +55,25 @@ export default function LaunchCard() {
 
   const canLaunch = projectPath && prompt.trim()
 
+  const inputClass = 'w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40'
+
   return (
     <Dialog open onClose={() => setLaunchOpen(false)}>
-      <div className="bg-surface-1 border border-white/[0.08] rounded-xl w-[480px] p-5">
-        <h2 className="text-sm font-semibold text-white/90 mb-4">New Task</h2>
+      <div className="bg-surface-1 border border-white/[0.08] rounded-xl w-[440px] max-w-[90vw] p-6 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold text-white/90">New Task</h2>
+          <button
+            onClick={() => setLaunchOpen(false)}
+            className="p-1 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
 
         {/* Project */}
-        <div className="mb-3">
-          <label className="text-[11px] text-muted font-medium mb-1 block">Project</label>
+        <div className="mb-4">
+          <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Project</label>
           {creatingNew ? (
             <div className="flex items-center gap-2">
               <input
@@ -71,60 +82,59 @@ export default function LaunchCard() {
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleCreateProject(); if (e.key === 'Escape') setCreatingNew(false) }}
                 placeholder="my-new-project"
-                className="flex-1 bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40"
+                className={`min-w-0 flex-1 ${inputClass}`}
               />
               <Button variant="primary" size="sm" onClick={handleCreateProject} disabled={!newName.trim()}>
                 Create
               </Button>
-              <button onClick={() => { setCreatingNew(false); setNewName('') }} className="p-2 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.04] transition-colors">
-                <X size={16} />
+              <button onClick={() => { setCreatingNew(false); setNewName('') }} className="shrink-0 p-1.5 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors">
+                <X size={14} />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <>
               <select
                 value={projectPath}
                 onChange={e => setProjectPath(e.target.value)}
-                className="flex-1 bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 focus:outline-none focus:border-accent-blue/40"
+                className={`mb-2 ${inputClass}`}
               >
                 <option value="">Select project...</option>
                 {projects.map(p => (
-                  <option key={p.path} value={p.path}>{p.name} — {p.path}</option>
+                  <option key={p.path} value={p.path}>{p.name}</option>
                 ))}
               </select>
-              <button onClick={() => setCreatingNew(true)} title="Create a new project" className="p-2 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.04] transition-colors">
-                <FolderPlus size={16} />
-              </button>
-              <button onClick={handleBrowse} title="Browse existing folder" className="p-2 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.04] transition-colors">
-                <FolderOpen size={16} />
-              </button>
-            </div>
-          )}
-          {creatingNew && (
-            <p className="text-[9px] text-white/30 mt-1">Creates ~/my-new-project with git init</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCreatingNew(true)} className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/60 transition-colors">
+                  <FolderPlus size={12} /> New project
+                </button>
+                <button onClick={handleBrowse} className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/60 transition-colors">
+                  <FolderOpen size={12} /> Browse
+                </button>
+              </div>
+            </>
           )}
         </div>
 
         {/* Prompt */}
-        <div className="mb-3">
-          <label className="text-[11px] text-muted font-medium mb-1 block">Prompt</label>
+        <div className="mb-4">
+          <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Prompt</label>
           <textarea
             value={prompt}
             onChange={e => { setPrompt(e.target.value); setModel(inferModel(e.target.value)) }}
             placeholder="What should Claude do?"
-            className="w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[80px]"
-            rows={3}
+            className={`resize-none min-h-[100px] ${inputClass}`}
+            rows={4}
           />
         </div>
 
         {/* Model + Budget row */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-3 mb-6">
           <div className="flex-1">
-            <label className="text-[11px] text-muted font-medium mb-1 block">Model</label>
+            <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Model</label>
             <select
               value={model}
               onChange={e => setModel(e.target.value)}
-              className="w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 focus:outline-none focus:border-accent-blue/40"
+              className={inputClass}
             >
               <option value="sonnet">Sonnet</option>
               <option value="opus">Opus</option>
@@ -132,14 +142,15 @@ export default function LaunchCard() {
             </select>
           </div>
           <div className="flex-1">
-            <Input
-              label="Max Budget (USD)"
+            <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Max Budget (USD)</label>
+            <input
               type="number"
               step="0.50"
               min="0"
               value={maxBudget}
               onChange={e => setMaxBudget(e.target.value)}
               placeholder="No limit"
+              className={inputClass}
             />
           </div>
         </div>
@@ -149,7 +160,7 @@ export default function LaunchCard() {
           <Button variant="ghost" size="sm" onClick={() => setLaunchOpen(false)}>Cancel</Button>
           <Button
             variant="primary"
-            size="md"
+            size="sm"
             onClick={handleLaunch}
             disabled={!canLaunch}
           >

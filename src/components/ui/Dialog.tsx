@@ -47,7 +47,7 @@ export default function Dialog({ open, onClose, children, className = '' }: Dial
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pt-16" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -56,7 +56,7 @@ export default function Dialog({ open, onClose, children, className = '' }: Dial
       {/* Content */}
       <div
         ref={dialogRef}
-        className={`relative z-10 animate-slide-up ${className}`}
+        className={`relative z-10 animate-slide-up max-h-[85vh] overflow-y-auto ${className}`}
       >
         {children}
       </div>
