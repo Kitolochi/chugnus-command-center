@@ -447,6 +447,14 @@ export function installElectronMock() {
     savePomodoroSession: async () => ({} as any),
     getPomodoroStats: async () => ({ todaySessions: 0, todayMinutes: 0, weekSessions: 0, weekMinutes: 0, streak: 0, mostFocusedTask: null }),
 
+    // Dual-Agent Collab
+    collabStart: async () => ({ sessionId: 'mock-session' }),
+    collabRespond: noop as any,
+    collabKill: noop as any,
+    collabGetSession: async () => null,
+    collabGetHistory: emptyArray as any,
+    onCollabUpdate: noopUnsub as any,
+
     // Session Analytics (native)
     avPing: async () => true,
     avGetStats: async () => ({ session_count: 0, message_count: 0, project_count: 0, machine_count: 0, earliest_session: '' }),

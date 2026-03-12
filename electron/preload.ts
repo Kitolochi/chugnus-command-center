@@ -178,6 +178,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => { ipcRenderer.removeListener('cc:queue-update', handler) }
   },
 
+  // Dual-Agent Collab
+  collabStart: (opts: { task: string; maxRounds?: number }) =>
+    ipcRenderer.invoke('collab:start', opts),
+  collabRespond: (opts: { sessionId: string; response: string }) =>
+    ipcRenderer.invoke('collab:respond', opts),
+  collabKill: (opts: { sessionId: string }) =>
+    ipcRenderer.invoke('collab:kill', opts),
+  collabGetSession: () => ipcRenderer.invoke('collab:get-session'),
+  collabGetHistory: (opts?: { limit?: number }) =>
+    ipcRenderer.invoke('collab:get-history', opts),
+  onCollabUpdate: (callback: (session: any) => void) => {
+    const handler = (_: any, session: any) => callback(session)
+    ipcRenderer.on('collab:update', handler)
+    return () => { ipcRenderer.removeListener('collab:update', handler) }
+  },
+
   // Notifications
   showNotification: (title: string, body: string) => ipcRenderer.invoke('show-notification', title, body),
 

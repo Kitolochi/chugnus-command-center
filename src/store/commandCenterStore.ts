@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CollabSession } from '../types'
 
 export interface CCQueueItem {
   processId: string
@@ -53,9 +54,13 @@ interface CommandCenterState {
   queue: CCQueueItem[]
   history: CCHistoryEntry[]
   historyFilter: string | null
-  activeView: 'queue' | 'history'
+  activeView: 'queue' | 'history' | 'collab'
   launchOpen: boolean
   projects: KnownProject[]
+
+  // Collab state
+  collabSession: CollabSession | null
+  collabHistory: CollabSession[]
 
   // Actions
   loadQueue: () => Promise<void>
@@ -65,10 +70,17 @@ interface CommandCenterState {
   respond: (processId: string, response: string) => Promise<void>
   dismiss: (processId: string) => Promise<void>
   kill: (processId: string) => Promise<void>
-  setActiveView: (view: 'queue' | 'history') => void
+  setActiveView: (view: 'queue' | 'history' | 'collab') => void
   setHistoryFilter: (filter: string | null) => void
   setLaunchOpen: (open: boolean) => void
   updateQueue: (queue: CCQueueItem[]) => void
+
+  // Collab actions
+  startCollab: (task: string, maxRounds?: number) => Promise<void>
+  respondCollab: (response: string) => Promise<void>
+  killCollab: () => Promise<void>
+  loadCollabHistory: () => Promise<void>
+  updateCollabSession: (session: CollabSession) => void
 }
 
 export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
@@ -78,6 +90,8 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   activeView: 'queue',
   launchOpen: false,
   projects: [],
+  collabSession: null,
+  collabHistory: [],
 
   loadQueue: async () => {
     const queue = await window.electronAPI.ccGetQueue()
@@ -121,4 +135,40 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   },
   setLaunchOpen: (open) => set({ launchOpen: open }),
   updateQueue: (queue) => set({ queue }),
+
+  // Collab actions
+  startCollab: async (task, maxRounds) => {
+    await window.electronAPI.collabStart({ task, maxRounds })
+    const session = await window.electronAPI.collabGetSession()
+    set({ collabSession: session })
+  },
+
+  respondCollab: async (response) => {
+    const session = get().collabSession
+    if (!session) return
+    await window.electronAPI.collabRespond({ sessionId: session.id, response })
+  },
+
+  killCollab: async () => {
+    const session = get().collabSession
+    if (!session) return
+    await window.electronAPI.collabKill({ sessionId: session.id })
+    set({ collabSession: null })
+    get().loadCollabHistory()
+  },
+
+  loadCollabHistory: async () => {
+    const collabHistory = await window.electronAPI.collabGetHistory()
+    set({ collabHistory })
+  },
+
+  updateCollabSession: (session) => {
+    // If terminal state, clear active and refresh history
+    if (session.status === 'completed' || session.status === 'killed' || session.status === 'errored') {
+      set({ collabSession: null })
+      get().loadCollabHistory()
+    } else {
+      set({ collabSession: session })
+    }
+  },
 }))

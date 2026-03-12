@@ -7,6 +7,7 @@ import { registerSocialHandlers } from './social'
 import { registerAgentHandlers } from './agents'
 import { registerAgentsViewHandlers } from './agentsview'
 import { registerCommandCenterHandlers } from './command-center'
+import { registerDualAgentHandlers } from './dual-agent'
 
 export function registerAllHandlers(mainWindow: BrowserWindow) {
   registerAIHandlers(mainWindow)
@@ -17,4 +18,5 @@ export function registerAllHandlers(mainWindow: BrowserWindow) {
   registerAgentHandlers(mainWindow)
   registerAgentsViewHandlers()
   registerCommandCenterHandlers(mainWindow)
+  registerDualAgentHandlers(mainWindow)
 }

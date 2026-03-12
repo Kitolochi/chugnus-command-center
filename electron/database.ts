@@ -570,6 +570,29 @@ export interface KnownProject {
   lastUsed: number
 }
 
+export interface CollabHistoryEntry {
+  id: string
+  task: string
+  status: 'running' | 'awaiting_input' | 'completed' | 'killed' | 'errored'
+  turns: {
+    id: string
+    agent: 'claude' | 'gpt'
+    content: string
+    tokensIn: number
+    tokensOut: number
+    costUsd: number
+    durationMs: number
+    timestamp: number
+  }[]
+  totalCostUsd: number
+  roundCount: number
+  summary?: string
+  errorMessage?: string
+  startedAt: number
+  updatedAt: number
+  completedAt?: number
+}
+
 interface Database {
   categories: Category[]
   tasks: Task[]
@@ -623,6 +646,8 @@ interface Database {
   // Command Center
   commandCenterHistory: CCHistoryEntry[]
   knownProjects: KnownProject[]
+  // Dual-Agent Collab
+  collabHistory: CollabHistoryEntry[]
 }
 
 let db: Database
@@ -1107,6 +1132,12 @@ export function initDatabase(): Database {
   }
   if (!Array.isArray((db as any).knownProjects)) {
     db.knownProjects = []
+    saveDatabase()
+  }
+
+  // Initialize collabHistory if missing
+  if (!Array.isArray((db as any).collabHistory)) {
+    db.collabHistory = []
     saveDatabase()
   }
 
@@ -3370,4 +3401,17 @@ export function discoverProjects(): KnownProject[] {
 
   saveDatabase()
   return db.knownProjects
+}
+
+// Dual-Agent Collab History
+export function addCollabHistoryEntry(session: CollabHistoryEntry): CollabHistoryEntry {
+  db.collabHistory.push(session)
+  saveDatabase()
+  return session
+}
+
+export function getCollabHistory(limit = 50): CollabHistoryEntry[] {
+  return db.collabHistory
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(0, limit)
 }

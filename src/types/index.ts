@@ -504,6 +504,36 @@ export interface AVHourOfWeek {
   cells: AVHourOfWeekCell[]
 }
 
+// === Dual-Agent Collab Types ===
+
+export type CollabAgent = 'claude' | 'gpt'
+
+export interface CollabTurn {
+  id: string
+  agent: CollabAgent
+  content: string
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  durationMs: number
+  timestamp: number
+}
+
+export interface CollabSession {
+  id: string
+  task: string
+  status: 'running' | 'awaiting_input' | 'completed' | 'killed' | 'errored'
+  turns: CollabTurn[]
+  totalCostUsd: number
+  roundCount: number
+  inputQuestion?: string
+  summary?: string
+  errorMessage?: string
+  startedAt: number
+  updatedAt: number
+  completedAt?: number
+}
+
 // === ElectronAPI Interface ===
 
 export interface ElectronAPI {
@@ -641,6 +671,14 @@ export interface ElectronAPI {
   ccBrowseProject: () => Promise<{ path: string; name: string } | null>
   ccCreateProject: (opts: { name: string }) => Promise<{ path: string; name: string } | null>
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
+
+  // Dual-Agent Collab
+  collabStart: (opts: { task: string; maxRounds?: number }) => Promise<{ sessionId: string }>
+  collabRespond: (opts: { sessionId: string; response: string }) => Promise<void>
+  collabKill: (opts: { sessionId: string }) => Promise<void>
+  collabGetSession: () => Promise<CollabSession | null>
+  collabGetHistory: (opts?: { limit?: number }) => Promise<CollabSession[]>
+  onCollabUpdate: (callback: (session: CollabSession) => void) => () => void
 
   // Notifications
   showNotification: (title: string, body: string) => Promise<void>

@@ -5,6 +5,7 @@ import { Layers, Plus } from 'lucide-react'
 import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
 import HistoryView from './HistoryView'
+import CollabView from './CollabView'
 
 export default function CommandCenter() {
   const {
@@ -84,6 +85,16 @@ export default function CommandCenter() {
             >
               History
             </button>
+            <button
+              onClick={() => setActiveView('collab')}
+              className={`px-2.5 py-1 text-[10px] rounded-md transition-all ${
+                activeView === 'collab'
+                  ? 'bg-surface-4 text-white/90'
+                  : 'text-white/40 hover:text-white/60'
+              }`}
+            >
+              Collab
+            </button>
           </div>
           <Button variant="primary" size="sm" onClick={() => setLaunchOpen(true)}>
             <Plus size={12} /> New Task
@@ -92,7 +103,9 @@ export default function CommandCenter() {
       </div>
 
       {/* Content */}
-      {activeView === 'queue' ? (
+      {activeView === 'collab' ? (
+        <CollabView />
+      ) : activeView === 'queue' ? (
         queue.length === 0 ? (
           <EmptyState
             icon={<Layers size={20} className="text-white/30" />}
