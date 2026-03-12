@@ -519,16 +519,23 @@ export interface CollabTurn {
   timestamp: number
 }
 
+export interface CollabMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface CollabSession {
   id: string
   task: string
   status: 'running' | 'awaiting_input' | 'completed' | 'killed' | 'errored'
   turns: CollabTurn[]
+  conversationHistory: CollabMessage[]
   totalCostUsd: number
   roundCount: number
   inputQuestion?: string
   summary?: string
   errorMessage?: string
+  parentSessionId?: string
   startedAt: number
   updatedAt: number
   completedAt?: number
@@ -674,6 +681,7 @@ export interface ElectronAPI {
 
   // Dual-Agent Collab
   collabStart: (opts: { task: string; maxRounds?: number }) => Promise<{ sessionId: string }>
+  collabResume: (opts: { sessionId: string; maxRounds?: number }) => Promise<{ sessionId: string }>
   collabRespond: (opts: { sessionId: string; response: string }) => Promise<void>
   collabKill: (opts: { sessionId: string }) => Promise<void>
   collabGetSession: () => Promise<CollabSession | null>

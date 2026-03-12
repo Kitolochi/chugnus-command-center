@@ -6,6 +6,11 @@ import { BrowserWindow } from 'electron'
 
 type CollabAgent = 'claude' | 'gpt'
 
+interface CollabMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 interface CollabTurn {
   id: string
   agent: CollabAgent
@@ -22,11 +27,13 @@ interface CollabSession {
   task: string
   status: 'running' | 'awaiting_input' | 'completed' | 'killed' | 'errored'
   turns: CollabTurn[]
+  conversationHistory: CollabMessage[]
   totalCostUsd: number
   roundCount: number
   inputQuestion?: string
   summary?: string
   errorMessage?: string
+  parentSessionId?: string
   startedAt: number
   updatedAt: number
   completedAt?: number
@@ -77,6 +84,7 @@ let activeSession: CollabSession | null = null
 let abortController: AbortController | null = null
 let inputResolve: ((value: string) => void) | null = null
 let onSessionComplete: ((session: CollabSession) => void) | null = null
+let getHistoryEntry: ((id: string) => CollabSession | undefined) | null = null
 
 // === Public API ===
 
@@ -88,12 +96,17 @@ export function setOnSessionComplete(cb: (session: CollabSession) => void) {
   onSessionComplete = cb
 }
 
+export function setGetHistoryEntry(cb: (id: string) => CollabSession | undefined) {
+  getHistoryEntry = cb
+}
+
 export function getActiveCollabSession(): CollabSession | null {
-  return activeSession ? { ...activeSession, turns: [...activeSession.turns] } : null
+  if (!activeSession) return null
+  return snapshot(activeSession)
 }
 
 export function startCollabSession(task: string, maxRounds = 4): { sessionId: string } {
-  if (activeSession && activeSession.status === 'running') {
+  if (activeSession && (activeSession.status === 'running' || activeSession.status === 'awaiting_input')) {
     throw new Error('A collab session is already running')
   }
 
@@ -102,26 +115,46 @@ export function startCollabSession(task: string, maxRounds = 4): { sessionId: st
     task,
     status: 'running',
     turns: [],
+    conversationHistory: [{ role: 'user', content: task }],
     totalCostUsd: 0,
     roundCount: 0,
     startedAt: Date.now(),
     updatedAt: Date.now(),
   }
 
-  activeSession = session
-  abortController = new AbortController()
+  launchSession(session, maxRounds)
+  return { sessionId: session.id }
+}
 
-  // Fire and forget the async loop
-  runLoop(session, maxRounds, abortController.signal).catch((err) => {
-    if (session.status === 'running') {
-      session.status = 'errored'
-      session.errorMessage = err.message
-      session.updatedAt = Date.now()
-      emitUpdate(session)
-      finalize(session)
-    }
+export function resumeCollabSession(parentSessionId: string, maxRounds = 4): { sessionId: string } {
+  if (activeSession && (activeSession.status === 'running' || activeSession.status === 'awaiting_input')) {
+    throw new Error('A collab session is already running')
+  }
+
+  if (!getHistoryEntry) throw new Error('History lookup not configured')
+  const parent = getHistoryEntry(parentSessionId)
+  if (!parent) throw new Error(`Session ${parentSessionId} not found in history`)
+
+  const session: CollabSession = {
+    id: crypto.randomUUID(),
+    task: parent.task,
+    status: 'running',
+    turns: [...parent.turns],
+    conversationHistory: [...parent.conversationHistory],
+    totalCostUsd: parent.totalCostUsd,
+    roundCount: 0,
+    parentSessionId,
+    startedAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+
+  // Inject a resume message so the agents know context was restored
+  session.conversationHistory.push({
+    role: 'user',
+    content: '[Session resumed by user. Continue where you left off.]',
   })
 
+  launchSession(session, maxRounds)
   return { sessionId: session.id }
 }
 
@@ -153,15 +186,38 @@ export function killCollabSession(sessionId: string): void {
 
 // === Internal ===
 
+function snapshot(session: CollabSession): CollabSession {
+  return {
+    ...session,
+    turns: [...session.turns],
+    conversationHistory: [...session.conversationHistory],
+  }
+}
+
+function launchSession(session: CollabSession, maxRounds: number) {
+  activeSession = session
+  abortController = new AbortController()
+
+  runLoop(session, maxRounds, abortController.signal).catch((err) => {
+    if (session.status === 'running') {
+      session.status = 'errored'
+      session.errorMessage = err.message
+      session.updatedAt = Date.now()
+      emitUpdate(session)
+      finalize(session)
+    }
+  })
+}
+
 function emitUpdate(session: CollabSession) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('collab:update', { ...session, turns: [...session.turns] })
+    mainWindow.webContents.send('collab:update', snapshot(session))
   }
 }
 
 function finalize(session: CollabSession) {
   if (onSessionComplete) {
-    onSessionComplete({ ...session, turns: [...session.turns] })
+    onSessionComplete(snapshot(session))
   }
   activeSession = null
   abortController = null
@@ -255,13 +311,12 @@ async function callAgent(
   systemPrompt: string,
   endpoint: string,
   model: string,
-  conversationHistory: Array<{ role: string; content: string }>,
   signal: AbortSignal
-): Promise<{ content: string; turn: CollabTurn }> {
+): Promise<string> {
   const label = agentName === 'claude' ? 'Claude' : 'GPT-5.4'
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...conversationHistory,
+    ...session.conversationHistory,
   ]
 
   const start = Date.now()
@@ -288,8 +343,8 @@ async function callAgent(
     timestamp: Date.now(),
   }
 
-  // Add to shared history
-  conversationHistory.push({
+  // Update shared conversation history on the session
+  session.conversationHistory.push({
     role: 'assistant',
     content: `[${label}]: ${content}`,
   })
@@ -300,14 +355,10 @@ async function callAgent(
   session.updatedAt = Date.now()
   emitUpdate(session)
 
-  return { content, turn }
+  return content
 }
 
 async function runLoop(session: CollabSession, maxRounds: number, signal: AbortSignal) {
-  const conversationHistory: Array<{ role: string; content: string }> = [
-    { role: 'user', content: session.task },
-  ]
-
   let rounds = 0
 
   while (session.status === 'running') {
@@ -317,17 +368,16 @@ async function runLoop(session: CollabSession, maxRounds: number, signal: AbortS
     session.roundCount = rounds
 
     // === Claude's turn ===
-    const { content: claudeContent } = await callAgent(
-      session, 'claude', CLAUDE_SYSTEM, CLAUDE_ENDPOINT, CLAUDE_MODEL,
-      conversationHistory, signal
+    const claudeContent = await callAgent(
+      session, 'claude', CLAUDE_SYSTEM, CLAUDE_ENDPOINT, CLAUDE_MODEL, signal
     )
 
     const claudeQ = checkForUserInput(claudeContent)
     if (claudeQ) {
       const answer = await waitForUserInput(session, claudeQ)
       if (signal.aborted) return
-      conversationHistory.push({ role: 'user', content: answer })
-      continue // Claude goes again
+      session.conversationHistory.push({ role: 'user', content: answer })
+      continue
     }
 
     if (checkTaskComplete(claudeContent)) {
@@ -343,17 +393,16 @@ async function runLoop(session: CollabSession, maxRounds: number, signal: AbortS
     if (signal.aborted) return
 
     // === GPT's turn ===
-    const { content: gptContent } = await callAgent(
-      session, 'gpt', GPT_SYSTEM, GPT_ENDPOINT, GPT_MODEL,
-      conversationHistory, signal
+    const gptContent = await callAgent(
+      session, 'gpt', GPT_SYSTEM, GPT_ENDPOINT, GPT_MODEL, signal
     )
 
     const gptQ = checkForUserInput(gptContent)
     if (gptQ) {
       const answer = await waitForUserInput(session, gptQ)
       if (signal.aborted) return
-      conversationHistory.push({ role: 'user', content: answer })
-      continue // GPT goes again
+      session.conversationHistory.push({ role: 'user', content: answer })
+      continue
     }
 
     if (checkTaskComplete(gptContent)) {
@@ -383,7 +432,7 @@ async function runLoop(session: CollabSession, maxRounds: number, signal: AbortS
         finalize(session)
         return
       } else if (answer.toLowerCase() !== 'continue') {
-        conversationHistory.push({ role: 'user', content: answer })
+        session.conversationHistory.push({ role: 'user', content: answer })
       }
       rounds = 0
     }

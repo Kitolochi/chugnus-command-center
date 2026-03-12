@@ -181,6 +181,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dual-Agent Collab
   collabStart: (opts: { task: string; maxRounds?: number }) =>
     ipcRenderer.invoke('collab:start', opts),
+  collabResume: (opts: { sessionId: string; maxRounds?: number }) =>
+    ipcRenderer.invoke('collab:resume', opts),
   collabRespond: (opts: { sessionId: string; response: string }) =>
     ipcRenderer.invoke('collab:respond', opts),
   collabKill: (opts: { sessionId: string }) =>

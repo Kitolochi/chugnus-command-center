@@ -9,6 +9,8 @@ module.exports = {
       fontFamily: {
         display: ['"Instrument Sans"', 'system-ui', 'sans-serif'],
         body: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        accent: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
       },
       letterSpacing: {
         tight: '-0.01em',

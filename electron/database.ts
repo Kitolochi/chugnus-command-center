@@ -584,10 +584,12 @@ export interface CollabHistoryEntry {
     durationMs: number
     timestamp: number
   }[]
+  conversationHistory: { role: 'user' | 'assistant'; content: string }[]
   totalCostUsd: number
   roundCount: number
   summary?: string
   errorMessage?: string
+  parentSessionId?: string
   startedAt: number
   updatedAt: number
   completedAt?: number
@@ -3414,4 +3416,8 @@ export function getCollabHistory(limit = 50): CollabHistoryEntry[] {
   return db.collabHistory
     .sort((a, b) => b.startedAt - a.startedAt)
     .slice(0, limit)
+}
+
+export function getCollabHistoryEntry(id: string): CollabHistoryEntry | undefined {
+  return db.collabHistory.find(e => e.id === id)
 }

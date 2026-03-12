@@ -77,6 +77,7 @@ interface CommandCenterState {
 
   // Collab actions
   startCollab: (task: string, maxRounds?: number) => Promise<void>
+  resumeCollab: (sessionId: string, maxRounds?: number) => Promise<void>
   respondCollab: (response: string) => Promise<void>
   killCollab: () => Promise<void>
   loadCollabHistory: () => Promise<void>
@@ -139,6 +140,12 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   // Collab actions
   startCollab: async (task, maxRounds) => {
     await window.electronAPI.collabStart({ task, maxRounds })
+    const session = await window.electronAPI.collabGetSession()
+    set({ collabSession: session })
+  },
+
+  resumeCollab: async (sessionId, maxRounds) => {
+    await window.electronAPI.collabResume({ sessionId, maxRounds })
     const session = await window.electronAPI.collabGetSession()
     set({ collabSession: session })
   },

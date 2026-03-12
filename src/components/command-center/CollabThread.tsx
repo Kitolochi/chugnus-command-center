@@ -26,8 +26,8 @@ function TurnBubble({ turn }: { turn: CollabTurn }) {
   return (
     <div className={`border-l-2 ${borderColor} pl-3 py-2`}>
       <div className="flex items-center justify-between mb-1">
-        <span className={`text-[11px] font-semibold ${labelColor}`}>{label}</span>
-        <div className="flex items-center gap-2 text-[9px] text-white/30">
+        <span className={`text-[11px] font-semibold font-accent ${labelColor}`}>{label}</span>
+        <div className="flex items-center gap-2 text-[9px] text-white/30 font-mono">
           <span className="flex items-center gap-0.5">
             <Clock size={8} />
             {formatDuration(turn.durationMs)}
@@ -95,12 +95,12 @@ export default function CollabThread({ session }: { session: CollabSession }) {
       {/* Header */}
       <div className="flex-shrink-0 border-b border-white/5 pb-3 mb-3">
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-[12px] text-white/70 line-clamp-1 flex-1 mr-2">{session.task}</p>
+          <p className="text-[12px] text-white/70 line-clamp-1 flex-1 mr-2 font-accent font-medium">{session.task}</p>
           <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium shrink-0 ${statusBadge.className}`}>
             {statusBadge.text}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-white/40">
+        <div className="flex items-center gap-3 text-[10px] text-white/40 font-mono">
           <span>{session.turns.length} turns</span>
           <span>{session.roundCount} rounds</span>
           <span>{formatCost(session.totalCostUsd)} total</span>
