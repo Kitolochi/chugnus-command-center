@@ -260,11 +260,25 @@ function extractText(parsed: any): string {
   return ''
 }
 
-// === Core: load all sessions (with caching) ===
+// === Core: load all sessions (with caching + dedup) ===
+
+let inflightLoad: Promise<SessionSummary[]> | null = null
 
 async function loadAllSummaries(): Promise<SessionSummary[]> {
+  // Deduplicate concurrent calls — share the same in-flight promise
+  if (inflightLoad) return inflightLoad
+  inflightLoad = _loadAllSummariesImpl()
+  try {
+    return await inflightLoad
+  } finally {
+    inflightLoad = null
+  }
+}
+
+async function _loadAllSummariesImpl(): Promise<SessionSummary[]> {
   const metas = discoverSessions()
   const results: SessionSummary[] = []
+  let cached_ = 0, parsed_ = 0, skipped_ = 0
 
   // Invalidate stale cache entries
   const currentIds = new Set(metas.map(m => m.sessionId))
@@ -274,12 +288,13 @@ async function loadAllSummaries(): Promise<SessionSummary[]> {
 
   for (const meta of metas) {
     // Skip tiny files
-    if (meta.size < 100) continue
+    if (meta.size < 100) { skipped_++; continue }
 
     const ck = cacheKey(meta)
-    const cached = summaryCache.get(meta.sessionId)
-    if (cached && cached.cacheKey === ck) {
-      results.push(cached)
+    const cachedEntry = summaryCache.get(meta.sessionId)
+    if (cachedEntry && cachedEntry.cacheKey === ck) {
+      results.push(cachedEntry)
+      cached_++
       continue
     }
 
@@ -288,9 +303,13 @@ async function loadAllSummaries(): Promise<SessionSummary[]> {
     if (summary.totalMessages > 0) {
       summaryCache.set(meta.sessionId, summary)
       results.push(summary)
+      parsed_++
+    } else {
+      skipped_++
     }
   }
 
+  console.log(`[analytics] ${metas.length} files → ${results.length} sessions (${cached_} cached, ${parsed_} parsed, ${skipped_} skipped)`)
   return results
 }
 
