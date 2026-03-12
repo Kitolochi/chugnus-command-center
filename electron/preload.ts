@@ -143,7 +143,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   avGetStats: () => ipcRenderer.invoke('av-get-stats'),
   avGetSummary: (days?: number) => ipcRenderer.invoke('av-get-summary', days),
   avGetTools: (days?: number) => ipcRenderer.invoke('av-get-tools', days),
-  avGetVelocity: (days?: number) => ipcRenderer.invoke('av-get-velocity', days),
   avGetHeatmap: () => ipcRenderer.invoke('av-get-heatmap'),
   avGetProjects: () => ipcRenderer.invoke('av-get-projects'),
   avGetSessions: () => ipcRenderer.invoke('av-get-sessions'),
@@ -151,20 +150,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   avGetSessionList: (opts?: { limit?: number; project?: string; search?: string }) => ipcRenderer.invoke('av-get-session-list', opts),
   avGetSessionDetail: (id: string) => ipcRenderer.invoke('av-get-session-detail', id),
   avGetSessionMessages: (id: string, limit?: number) => ipcRenderer.invoke('av-get-session-messages', id, limit),
-  avGetInsights: () => ipcRenderer.invoke('av-get-insights'),
-  avGetSyncStatus: () => ipcRenderer.invoke('av-get-sync-status'),
-  avSync: (full?: boolean) => ipcRenderer.invoke('av-sync', full),
-  avGenerateInsights: (type: string, dateFrom: string, dateTo: string) => ipcRenderer.invoke('av-generate-insights', type, dateFrom, dateTo),
   avSearch: (q: string, limit?: number) => ipcRenderer.invoke('av-search', q, limit),
   avGetActivity: (days?: number) => ipcRenderer.invoke('av-get-activity', days),
   avGetHourOfWeek: () => ipcRenderer.invoke('av-get-hour-of-week'),
   avGetSessionChildren: (id: string) => ipcRenderer.invoke('av-get-session-children', id),
-  avExportSession: (id: string) => ipcRenderer.invoke('av-export-session', id),
-
-  // AgentsView Process Management
-  avProcessStart: () => ipcRenderer.invoke('av-process-start'),
-  avProcessStop: () => ipcRenderer.invoke('av-process-stop'),
-  avProcessStatus: () => ipcRenderer.invoke('av-process-status'),
+  avRefresh: () => ipcRenderer.invoke('av-refresh'),
 
   // Command Center
   ccLaunch: (opts: { projectPath: string; prompt: string; model?: string; maxBudget?: number; resumeSessionId?: string }) =>

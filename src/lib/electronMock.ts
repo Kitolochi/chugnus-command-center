@@ -447,32 +447,22 @@ export function installElectronMock() {
     savePomodoroSession: async () => ({} as any),
     getPomodoroStats: async () => ({ todaySessions: 0, todayMinutes: 0, weekSessions: 0, weekMinutes: 0, streak: 0, mostFocusedTask: null }),
 
-    // AgentsView Analytics
-    avPing: async () => false,
+    // Session Analytics (native)
+    avPing: async () => true,
     avGetStats: async () => ({ session_count: 0, message_count: 0, project_count: 0, machine_count: 0, earliest_session: '' }),
-    avGetSummary: async () => ({ total_sessions: 0, total_messages: 0, active_projects: 0, active_days: 0, avg_messages: 0, median_messages: 0, p90_messages: 0, most_active_project: '', concentration: 0, agents: {} }),
+    avGetSummary: async () => ({ total_sessions: 0, total_messages: 0, active_projects: 0, active_days: 0, avg_messages: 0, median_messages: 0, p90_messages: 0, most_active_project: '', concentration: 0, agents: {}, total_cost: 0, total_commits: 0 }),
     avGetTools: async () => ({ total_calls: 0, by_category: [], by_agent: [], trend: [] }),
-    avGetVelocity: async () => ({ overall: { turn_cycle_sec: { p50: 0, p90: 0 }, first_response_sec: { p50: 0, p90: 0 }, msgs_per_active_min: 0, chars_per_active_min: 0, tool_calls_per_active_min: 0 }, by_agent: [], by_complexity: [] }),
-    avGetHeatmap: async () => ({ metric: 'messages', entries: [] }),
+    avGetHeatmap: async () => ({ metric: 'sessions', entries: [] }),
     avGetProjects: async () => ({ projects: [] }),
     avGetSessions: async () => ({ count: 0, length_distribution: [], duration_distribution: [], autonomy_distribution: [] }),
-    avGetTopSessions: async () => ({ metric: 'messages', sessions: [] }),
+    avGetTopSessions: async () => ({ metric: 'message_count', sessions: [] }),
     avGetSessionList: async () => ({ sessions: [], next_cursor: null, total: 0 }),
     avGetSessionDetail: async () => ({ id: '', project: '', machine: '', agent: '', first_message: '', started_at: '', ended_at: '', message_count: 0, user_message_count: 0, parent_session_id: null, relationship_type: null, created_at: '' }),
     avGetSessionMessages: async () => ({ count: 0, messages: [] }),
-    avGetInsights: async () => ({ insights: [] }),
-    avGetSyncStatus: async () => ({ last_sync: '', stats: { total_sessions: 0, synced: 0, skipped: 0, failed: 0 } }),
-    avSync: async () => ({ events: [] }),
-    avGenerateInsights: async () => ({ events: [] }),
     avSearch: async () => ({ query: '', results: [] }),
     avGetActivity: async () => ({ granularity: 'day', series: [] }),
     avGetHourOfWeek: async () => ({ cells: [] }),
     avGetSessionChildren: async () => [],
-    avExportSession: async () => '<html><body>No data</body></html>',
-
-    // AgentsView Process Management
-    avProcessStart: async () => false,
-    avProcessStop: async () => true,
-    avProcessStatus: async () => 'not-installed' as const,
+    avRefresh: async () => true,
   } as any
 }

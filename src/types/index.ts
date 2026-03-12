@@ -362,20 +362,6 @@ export interface AVTools {
   trend: { date: string; by_category: Record<string, number> }[]
 }
 
-export interface AVVelocityMetrics {
-  turn_cycle_sec: { p50: number; p90: number }
-  first_response_sec: { p50: number; p90: number }
-  msgs_per_active_min: number
-  chars_per_active_min: number
-  tool_calls_per_active_min: number
-}
-
-export interface AVVelocity {
-  overall: AVVelocityMetrics
-  by_agent: { label: string; sessions: number; overview: AVVelocityMetrics }[]
-  by_complexity: { label: string; sessions: number; overview: AVVelocityMetrics }[]
-}
-
 export interface AVHeatmapEntry {
   date: string
   value: number
@@ -447,33 +433,6 @@ export interface AVSessionList {
   sessions: AVSessionListItem[]
   next_cursor: string | null
   total: number
-}
-
-export interface AVInsight {
-  id: number
-  type: string
-  date_from: string
-  date_to: string
-  project: string | null
-  agent: string
-  model: string | null
-  prompt: string | null
-  content: string
-  created_at: string
-}
-
-export interface AVInsights {
-  insights: AVInsight[]
-}
-
-export interface AVSyncStatus {
-  last_sync: string
-  stats: {
-    total_sessions: number
-    synced: number
-    skipped: number
-    failed: number
-  }
 }
 
 export interface AVSessionDetail {
@@ -657,7 +616,6 @@ export interface ElectronAPI {
   avGetStats: () => Promise<AVStats>
   avGetSummary: (days?: number) => Promise<AVSummary>
   avGetTools: (days?: number) => Promise<AVTools>
-  avGetVelocity: (days?: number) => Promise<AVVelocity>
   avGetHeatmap: () => Promise<AVHeatmap>
   avGetProjects: () => Promise<AVProjects>
   avGetSessions: () => Promise<AVSessions>
@@ -665,20 +623,11 @@ export interface ElectronAPI {
   avGetSessionList: (opts?: { limit?: number; project?: string; search?: string }) => Promise<AVSessionList>
   avGetSessionDetail: (id: string) => Promise<AVSessionDetail>
   avGetSessionMessages: (id: string, limit?: number) => Promise<AVSessionMessages>
-  avGetInsights: () => Promise<AVInsights>
-  avGetSyncStatus: () => Promise<AVSyncStatus>
-  avSync: (full?: boolean) => Promise<{ events: any[] }>
-  avGenerateInsights: (type: string, dateFrom: string, dateTo: string) => Promise<{ events: any[] }>
   avSearch: (q: string, limit?: number) => Promise<AVSearchResults>
   avGetActivity: (days?: number) => Promise<AVActivity>
   avGetHourOfWeek: () => Promise<AVHourOfWeek>
   avGetSessionChildren: (id: string) => Promise<AVSessionListItem[]>
-  avExportSession: (id: string) => Promise<string>
-
-  // AgentsView Process Management
-  avProcessStart: () => Promise<boolean>
-  avProcessStop: () => Promise<boolean>
-  avProcessStatus: () => Promise<'running' | 'stopped' | 'not-installed'>
+  avRefresh: () => Promise<boolean>
 
   // Command Center
   ccLaunch: (opts: { projectPath: string; prompt: string; model?: string; maxBudget?: number; resumeSessionId?: string }) => Promise<any>

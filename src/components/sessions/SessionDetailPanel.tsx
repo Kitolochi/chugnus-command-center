@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useSessionsStore } from '../../store'
 import { renderMarkdown } from '../../utils/markdown'
 
 export default function SessionDetailPanel() {
   const {
     sessionDetail, sessionMessages, loadingDetail, selectSession,
-    sessionChildren, loadSessionChildren, exportSession,
+    sessionChildren, loadSessionChildren,
   } = useSessionsStore()
-  const [exporting, setExporting] = useState(false)
 
   // Load children when session changes
   useEffect(() => {
@@ -15,22 +14,6 @@ export default function SessionDetailPanel() {
       loadSessionChildren(sessionDetail.id)
     }
   }, [sessionDetail?.id, loadSessionChildren])
-
-  const handleExport = async () => {
-    if (!sessionDetail) return
-    setExporting(true)
-    try {
-      const html = await exportSession(sessionDetail.id)
-      const blob = new Blob([html], { type: 'text/html' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `session-${sessionDetail.id.slice(0, 8)}.html`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {}
-    setExporting(false)
-  }
 
   if (loadingDetail) {
     return (
@@ -72,16 +55,6 @@ export default function SessionDetailPanel() {
           </div>
         </div>
         <div className="flex items-center gap-1 ml-3 shrink-0">
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="p-1.5 text-muted hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors disabled:opacity-50"
-            title="Export as HTML"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </button>
           <button
             onClick={() => selectSession(null)}
             className="p-1.5 text-muted hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors"

@@ -14,7 +14,7 @@ export default function OverviewView() {
     <div className="space-y-6">
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {[
             { label: 'Total Sessions', value: summary.total_sessions.toLocaleString() },
             { label: 'Messages', value: summary.total_messages.toLocaleString() },
@@ -22,6 +22,8 @@ export default function OverviewView() {
             { label: 'Active Days', value: summary.active_days },
             { label: 'Avg Msgs/Session', value: `${summary.median_messages} / ${summary.p90_messages}`, sub: 'med / p90' },
             { label: 'Concentration', value: `${(summary.concentration * 100).toFixed(1)}%` },
+            { label: 'Est. Cost', value: `$${((summary as any).total_cost ?? 0).toFixed(2)}` },
+            { label: 'Git Commits', value: ((summary as any).total_commits ?? 0).toLocaleString() },
           ].map((card, i) => (
             <div key={i} className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4">
               <div className="text-[10px] text-muted uppercase tracking-wider mb-1">{card.label}</div>
