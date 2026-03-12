@@ -4,12 +4,11 @@ import { Button, EmptyState } from '../ui'
 import { Layers, Plus } from 'lucide-react'
 import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
-import LaunchCard from './LaunchCard'
 import HistoryView from './HistoryView'
 
 export default function CommandCenter() {
   const {
-    queue, activeView, launchOpen,
+    queue, activeView,
     loadQueue, loadProjects,
     setActiveView, setLaunchOpen,
   } = useCommandCenterStore()
@@ -113,8 +112,6 @@ export default function CommandCenter() {
         <HistoryView />
       )}
 
-      {/* Launch Modal */}
-      {launchOpen && <LaunchCard />}
     </div>
   )
 }
