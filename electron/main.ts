@@ -226,20 +226,16 @@ app.whenReady().then(() => {
     mainWindow?.webContents.send('memory-health-update', health)
   })
 
-  // Background: pre-warm embedding model after 5s, then refresh vector index
+  // Background: pre-warm embedding model after 5s, then load existing vector index
+  // NOTE: Full rebuild is triggered manually from the UI to avoid freezing on startup
   setTimeout(async () => {
     try {
       await initEmbeddingModel((progress) => {
         mainWindow?.webContents.send('embedding-progress', progress)
       })
-      // Load or build vector index once model is ready
       const embStatus = getEmbeddingStatus()
       if (embStatus.ready) {
         await loadVectorIndex()
-        // Always do an incremental refresh to pick up changes
-        await rebuildIndex((info) => {
-          mainWindow?.webContents.send('index-progress', info)
-        })
       }
     } catch (err) {
       console.error('Background embedding/index init failed:', err)
