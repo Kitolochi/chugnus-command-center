@@ -2,15 +2,9 @@ import { ipcMain, BrowserWindow, Notification, clipboard, shell, dialog, app } f
 import path from 'path'
 import fs from 'fs'
 import { spawn } from 'child_process'
-import { getPomodoroState, startPomodoro, completePomodoro, startBreak, stopPomodoro, savePomodoroSession, getPomodoroStats, getMorningBriefing, saveMorningBriefing, dismissMorningBriefing, getBriefingData, getWeeklyReview, saveWeeklyReview, getAllWeeklyReviews, getWeeklyReviewData, checkWeeklyReviewNeeded, getCategories, getAITasks, createAITask, updateAITask, deleteAITask, moveAITask, getRoadmapGoals, createRoadmapGoal, updateRoadmapGoal, deleteRoadmapGoal, isWelcomeDismissed, dismissWelcome, systemWipe } from '../database'
-import { generateMorningBriefing, generateWeeklyReview } from '../summarize'
-import { createTerminal, writeTerminal, resizeTerminal, killTerminal } from '../terminal'
 import { getCliSessions, getCliSessionMessages, searchCliSessions } from '../cli-logs'
-import { searchGitHubRepos } from '../github'
-import { transcribeAudio, transcribeAudioBlob, getWhisperStatus } from '../whisper'
 import { getEmbeddingStatus } from '../embeddings'
 import { rebuildIndex, deleteIndex } from '../vector-store'
-import { generateReorgPlan, executeReorgPlan } from '../reorganize'
 import { isLLMConfigured } from '../llm'
 
 // --- Helper functions ---
@@ -61,48 +55,6 @@ function scanDirectory(dir: string, memoryRoot: string): any[] {
     }
   }
   return results
-}
-
-function buildLocalBriefing(data: ReturnType<typeof getBriefingData>): string {
-  const lines: string[] = []
-  if (data.overdueTasks.length > 0) {
-    lines.push(`You have ${data.overdueTasks.length} overdue task${data.overdueTasks.length > 1 ? 's' : ''} that need attention.`)
-  }
-  if (data.todayTasks.length > 0) {
-    lines.push(`${data.todayTasks.length} task${data.todayTasks.length > 1 ? 's' : ''} due today.`)
-  }
-  if (data.highPriorityTasks.length > 0) {
-    lines.push(`${data.highPriorityTasks.length} high priority task${data.highPriorityTasks.length > 1 ? 's' : ''}: ${data.highPriorityTasks.slice(0, 3).map(t => t.title).join(', ')}`)
-  }
-  if (data.streak > 0) {
-    lines.push(`You're on a ${data.streak}-day streak! Keep it going.`)
-  }
-  if (data.stats.tasksCompletedThisWeek > 0) {
-    lines.push(`${data.stats.tasksCompletedThisWeek} tasks completed this week so far.`)
-  }
-  if (lines.length === 0) {
-    lines.push('No pressing items today. A great day to get ahead!')
-  }
-  return lines.map(l => `- ${l}`).join('\n')
-}
-
-function buildLocalWeeklyReview(data: ReturnType<typeof getWeeklyReviewData>): string {
-  const lines: string[] = []
-  lines.push(`**Week Summary**`)
-  lines.push(`- Completed ${data.completedTasks.length} task${data.completedTasks.length !== 1 ? 's' : ''}`)
-  if (data.focusMinutes > 0) {
-    lines.push(`- ${data.focusMinutes} minutes of focused work`)
-  }
-  if (data.notesWritten.length > 0) {
-    lines.push(`- Wrote ${data.notesWritten.length} journal entr${data.notesWritten.length !== 1 ? 'ies' : 'y'}`)
-  }
-  if (data.categoriesWorked.length > 0) {
-    lines.push(`- Active in: ${data.categoriesWorked.join(', ')}`)
-  }
-  if (data.streak > 0) {
-    lines.push(`- Current streak: ${data.streak} days`)
-  }
-  return lines.join('\n')
 }
 
 function scaffoldDomainFolders(): void {
@@ -229,23 +181,6 @@ function scaffoldDomainFolders(): void {
 export { scaffoldDomainFolders }
 
 export function registerSystemHandlers(mainWindow: BrowserWindow) {
-  // Terminal
-  ipcMain.handle('create-terminal', (_, cols: number, rows: number) => {
-    if (mainWindow) createTerminal(mainWindow, cols, rows)
-  })
-
-  ipcMain.handle('write-terminal', (_, data: string) => {
-    writeTerminal(data)
-  })
-
-  ipcMain.handle('resize-terminal', (_, cols: number, rows: number) => {
-    resizeTerminal(cols, rows)
-  })
-
-  ipcMain.handle('kill-terminal', () => {
-    killTerminal()
-  })
-
   // Clipboard
   ipcMain.on('read-clipboard', (event) => {
     event.returnValue = clipboard.readText()
@@ -395,20 +330,6 @@ export function registerSystemHandlers(mainWindow: BrowserWindow) {
     return true
   })
 
-  // Whisper
-  ipcMain.handle('get-whisper-status', () => {
-    return getWhisperStatus()
-  })
-
-  ipcMain.handle('transcribe-audio', async (_, audioData: number[]) => {
-    const float32 = new Float32Array(audioData)
-    return transcribeAudio(float32)
-  })
-
-  ipcMain.handle('transcribe-audio-blob', async (_, webmData: number[]) => {
-    return transcribeAudioBlob(new Uint8Array(webmData))
-  })
-
   // Embeddings / Vector index
   ipcMain.handle('get-embedding-status', () => {
     return getEmbeddingStatus()
@@ -418,25 +339,6 @@ export function registerSystemHandlers(mainWindow: BrowserWindow) {
     return rebuildIndex((info) => {
       mainWindow?.webContents.send('index-progress', info)
     })
-  })
-
-  ipcMain.handle('generate-reorg-plan', async () => {
-    if (!isLLMConfigured()) throw new Error('No AI provider configured.')
-    return generateReorgPlan()
-  })
-
-  ipcMain.handle('execute-reorg-plan', async (_, plan: any) => {
-    const result = await executeReorgPlan(plan)
-    try {
-      await deleteIndex()
-      const embStatus = getEmbeddingStatus()
-      if (embStatus.ready) {
-        await rebuildIndex()
-      }
-    } catch (err) {
-      console.error('Re-index after reorg failed:', err)
-    }
-    return result
   })
 
   // CLI logs
@@ -452,20 +354,12 @@ export function registerSystemHandlers(mainWindow: BrowserWindow) {
     return searchCliSessions(query)
   })
 
-  ipcMain.handle('search-github-repos', async (_, query: string) => {
-    return searchGitHubRepos(query)
-  })
-
-  // Welcome modal
-  ipcMain.handle('is-welcome-dismissed', () => isWelcomeDismissed())
-  ipcMain.handle('dismiss-welcome', () => { dismissWelcome() })
-
   // Launch external terminal
   ipcMain.handle('launch-external-terminal', async (_, prompt: string, cwd?: string) => {
     const workingDir = cwd || process.env.USERPROFILE || '.'
     const env = { ...process.env }
     delete env.CLAUDECODE
-    const tmpDir = path.join(app.getPath('temp'), 'mega-agenda')
+    const tmpDir = path.join(app.getPath('temp'), 'chugnus-command-center')
     fs.mkdirSync(tmpDir, { recursive: true })
     const batFile = path.join(tmpDir, `launch-${Date.now()}.bat`)
     const safePrompt = prompt.replace(/%/g, '%%').replace(/"/g, "'").replace(/[&|<>^]/g, '^$&')
@@ -480,169 +374,5 @@ export function registerSystemHandlers(mainWindow: BrowserWindow) {
       env,
     })
     child.unref()
-  })
-
-  // Pomodoro
-  ipcMain.handle('get-pomodoro-state', () => {
-    return getPomodoroState()
-  })
-
-  ipcMain.handle('start-pomodoro', (_, taskId: number | null, taskTitle: string, durationMinutes?: number) => {
-    return startPomodoro(taskId, taskTitle, durationMinutes)
-  })
-
-  ipcMain.handle('complete-pomodoro', () => {
-    return completePomodoro()
-  })
-
-  ipcMain.handle('start-break', (_, type: 'short_break' | 'long_break') => {
-    return startBreak(type)
-  })
-
-  ipcMain.handle('stop-pomodoro', () => {
-    return stopPomodoro()
-  })
-
-  ipcMain.handle('save-pomodoro-session', (_, record: any) => {
-    return savePomodoroSession(record)
-  })
-
-  ipcMain.handle('get-pomodoro-stats', () => {
-    return getPomodoroStats()
-  })
-
-  // Morning Briefing
-  ipcMain.handle('get-morning-briefing', (_, date: string) => {
-    return getMorningBriefing(date)
-  })
-
-  ipcMain.handle('generate-morning-briefing', async () => {
-    const today = new Date().toISOString().split('T')[0]
-    const existing = getMorningBriefing(today)
-    if (existing) return existing
-
-    const data = getBriefingData()
-
-    let content: string
-    let isAiEnhanced = false
-
-    if (isLLMConfigured()) {
-      try {
-        content = await generateMorningBriefing(data)
-        isAiEnhanced = true
-      } catch {
-        content = buildLocalBriefing(data)
-      }
-    } else {
-      content = buildLocalBriefing(data)
-    }
-
-    const briefing = {
-      date: today,
-      content,
-      isAiEnhanced,
-      dismissed: false,
-      generatedAt: new Date().toISOString()
-    }
-    return saveMorningBriefing(briefing)
-  })
-
-  ipcMain.handle('dismiss-morning-briefing', (_, date: string) => {
-    return dismissMorningBriefing(date)
-  })
-
-  // Weekly Review
-  ipcMain.handle('get-weekly-review', (_, weekStart: string) => {
-    return getWeeklyReview(weekStart)
-  })
-
-  ipcMain.handle('get-all-weekly-reviews', () => {
-    return getAllWeeklyReviews()
-  })
-
-  ipcMain.handle('generate-weekly-review', async (_, weekStart: string) => {
-    const existing = getWeeklyReview(weekStart)
-    if (existing) return existing
-
-    const data = getWeeklyReviewData(weekStart)
-    const categories = getCategories()
-
-    let content: string
-    if (isLLMConfigured()) {
-      try {
-        content = await generateWeeklyReview({
-          completedTasks: data.completedTasks.map(t => ({
-            title: t.title,
-            category: categories.find(c => c.id === t.category_id)?.name || 'Unknown',
-            priority: t.priority
-          })),
-          focusMinutes: data.focusMinutes,
-          notesCount: data.notesWritten.length,
-          categoriesWorked: data.categoriesWorked,
-          streak: data.streak
-        })
-      } catch {
-        content = buildLocalWeeklyReview(data)
-      }
-    } else {
-      content = buildLocalWeeklyReview(data)
-    }
-
-    const review = {
-      weekStartDate: weekStart,
-      content,
-      generatedAt: new Date().toISOString(),
-      tasksCompletedCount: data.completedTasks.length,
-      categoriesWorked: data.categoriesWorked,
-      streakAtGeneration: data.streak
-    }
-    return saveWeeklyReview(review)
-  })
-
-  ipcMain.handle('check-weekly-review-needed', () => {
-    return checkWeeklyReviewNeeded()
-  })
-
-  // Roadmap Goals
-  ipcMain.handle('get-roadmap-goals', () => {
-    return getRoadmapGoals()
-  })
-
-  ipcMain.handle('create-roadmap-goal', (_, goal: any) => {
-    return createRoadmapGoal(goal)
-  })
-
-  ipcMain.handle('update-roadmap-goal', (_, id: string, updates: any) => {
-    return updateRoadmapGoal(id, updates)
-  })
-
-  ipcMain.handle('delete-roadmap-goal', (_, id: string) => {
-    return deleteRoadmapGoal(id)
-  })
-
-  // AI Tasks
-  ipcMain.handle('get-ai-tasks', () => {
-    return getAITasks()
-  })
-
-  ipcMain.handle('create-ai-task', (_, task: { title: string; description: string; priority: 'low' | 'medium' | 'high'; tags: string[] }) => {
-    return createAITask(task)
-  })
-
-  ipcMain.handle('update-ai-task', (_, id: string, updates: any) => {
-    return updateAITask(id, updates)
-  })
-
-  ipcMain.handle('delete-ai-task', (_, id: string) => {
-    return deleteAITask(id)
-  })
-
-  ipcMain.handle('move-ai-task', (_, id: string, column: string) => {
-    return moveAITask(id, column as any)
-  })
-
-  // System Wipe
-  ipcMain.handle('system-wipe', () => {
-    systemWipe()
   })
 }

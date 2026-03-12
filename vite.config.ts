@@ -12,7 +12,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['node-pty', '@xenova/transformers', '@lancedb/lancedb', 'better-sqlite3'],
+              external: ['@xenova/transformers', '@lancedb/lancedb', 'better-sqlite3'],
               output: {
                 format: 'cjs'
               }
