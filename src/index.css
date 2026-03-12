@@ -1,0 +1,284 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a32;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a46;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #0c0c0e;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ═══════════════════════════════════════════
+   Glassmorphic card — enhanced with hover glow
+   ═══════════════════════════════════════════ */
+.glass-card {
+  background: linear-gradient(135deg, rgba(26, 26, 31, 0.88) 0%, rgba(19, 19, 22, 0.78) 100%);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 20px -8px rgba(108, 142, 239, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Elevated variant with stronger glass effect */
+.glass-card-elevated {
+  background: linear-gradient(135deg, rgba(30, 30, 36, 0.92) 0%, rgba(22, 22, 26, 0.82) 100%);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.45),
+    0 0 40px -20px rgba(108, 142, 239, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.glass-card-elevated:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 60px -20px rgba(108, 142, 239, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Canvas background handles ambient effects now — see AnimatedBackground.tsx */
+
+/* Noise texture overlay */
+.noise-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ═══════════════════════════════════════════
+   Tab transition wrapper
+   ═══════════════════════════════════════════ */
+.tab-content-enter {
+  animation: tabEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes tabEnter {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════
+   Task completion celebration
+   ═══════════════════════════════════════════ */
+.task-celebrate {
+  animation: taskCelebrate 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes taskCelebrate {
+  0% {
+    background-color: rgba(52, 211, 153, 0);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.3);
+  }
+  30% {
+    background-color: rgba(52, 211, 153, 0.08);
+    box-shadow: 0 0 20px 0 rgba(52, 211, 153, 0.15);
+  }
+  100% {
+    background-color: rgba(52, 211, 153, 0);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Progress ring animation
+   ═══════════════════════════════════════════ */
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* ═══════════════════════════════════════════
+   Glow effects
+   ═══════════════════════════════════════════ */
+.glow-sm {
+  box-shadow: 0 0 12px -3px var(--glow-color, rgba(108, 142, 239, 0.3));
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px -4px var(--glow-color, rgba(108, 142, 239, 0.25));
+}
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(135deg, #6C8EEF, #A78BFA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══════════════════════════════════════════
+   Gradient accent bar — animated version
+   ═══════════════════════════════════════════ */
+.gradient-bar {
+  background: linear-gradient(90deg, #6C8EEF, #A78BFA, #34D399, #6C8EEF);
+  background-size: 300% 100%;
+  animation: gradientShift 8s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* ═══════════════════════════════════════════
+   Interactive hover lift
+   ═══════════════════════════════════════════ */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.hover-lift:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ═══════════════════════════════════════════
+   Button press effect
+   ═══════════════════════════════════════════ */
+.press-effect {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.press-effect:active {
+  transform: scale(0.96);
+}
+
+/* ═══════════════════════════════════════════
+   Inputs
+   ═══════════════════════════════════════════ */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+
+select, input, textarea {
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+/* Focus ring */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(108, 142, 239, 0.3);
+}
+
+/* ═══════════════════════════════════════════
+   Shimmer for streak
+   ═══════════════════════════════════════════ */
+.streak-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(251, 146, 60, 0) 0%,
+    rgba(251, 146, 60, 0.15) 50%,
+    rgba(251, 146, 60, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ═══════════════════════════════════════════
+   Stat card shine on hover
+   ═══════════════════════════════════════════ */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover::after {
+  opacity: 1;
+  animation: shimmer 1.5s ease-in-out;
+}
+
+/* ═══════════════════════════════════════════
+   Terminal
+   ═══════════════════════════════════════════ */
+.xterm,
+.xterm * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* ═══════════════════════════════════════════
+   Staggered list animation helper
+   ═══════════════════════════════════════════ */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}

@@ -1,0 +1,53 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Generate release tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="build-$(date -u '+%Y.%m.%d')-$(git rev-parse --short HEAD)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Find portable exe
+        id: exe
+        shell: bash
+        run: |
+          EXE=$(find release -maxdepth 1 -name '*.exe' | head -1)
+          echo "path=$EXE" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$EXE")" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          files: ${{ steps.exe.outputs.path }}
+          generate_release_notes: true
