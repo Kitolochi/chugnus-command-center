@@ -38,8 +38,11 @@ export default function CommandCenter() {
     return a.updatedAt - b.updatedAt
   })
 
-  // If user picked a focus, use that; otherwise default to top of sorted list
-  const focusItem = (focusId && sorted.find(s => s.processId === focusId)) || sorted[0]
+  // Honor focusId only if that item needs attention (awaiting/errored) or nothing else does
+  const focusedItem = focusId ? sorted.find(s => s.processId === focusId) : null
+  const topNeedsAttention = sorted[0]?.status === 'awaiting_input' || sorted[0]?.status === 'errored'
+  const focusNeedsAttention = focusedItem?.status === 'awaiting_input' || focusedItem?.status === 'errored'
+  const focusItem = (focusedItem && (focusNeedsAttention || !topNeedsAttention)) ? focusedItem : sorted[0]
   const collapsed = sorted.filter(s => s.processId !== focusItem?.processId)
 
   return (
