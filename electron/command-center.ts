@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process'
 import crypto from 'crypto'
 import path from 'path'
 import os from 'os'
+import fs from 'fs'
 import { BrowserWindow } from 'electron'
 import { updateCCHistoryEntry } from './database'
 
@@ -80,6 +81,46 @@ export function getProcessCount(): number {
   return processes.size
 }
 
+/**
+ * Find the actual project directory where a Claude Code session file lives.
+ * Sessions are stored at ~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl
+ * and --resume only works when CWD matches the original project directory.
+ */
+function findSessionCwd(sessionId: string, preferredCwd: string): string {
+  const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects')
+  const sessionFile = `${sessionId}.jsonl`
+
+  // 1. Check preferred path first (encoded from the stored projectPath)
+  const encodedPreferred = preferredCwd.replace(':', '-').replace(/[\\/]/g, '-')
+  const preferredPath = path.join(claudeProjectsDir, encodedPreferred, sessionFile)
+  if (fs.existsSync(preferredPath)) return preferredCwd
+
+  // 2. Search all project directories for this session file
+  try {
+    const dirs = fs.readdirSync(claudeProjectsDir, { withFileTypes: true })
+    for (const d of dirs) {
+      if (!d.isDirectory()) continue
+      const candidate = path.join(claudeProjectsDir, d.name, sessionFile)
+      if (fs.existsSync(candidate)) {
+        // Read early lines to find the CWD field (present on user/assistant messages)
+        try {
+          const content = fs.readFileSync(candidate, 'utf-8')
+          const lines = content.split('\n')
+          for (let j = 0; j < Math.min(lines.length, 5); j++) {
+            if (!lines[j].trim()) continue
+            const msg = JSON.parse(lines[j])
+            if (msg.cwd) return msg.cwd
+          }
+        } catch {}
+        break
+      }
+    }
+  } catch {}
+
+  // 3. Fallback to preferred CWD (resume will fail but error is handled gracefully)
+  return preferredCwd
+}
+
 export function launchProcess(opts: {
   projectPath: string
   prompt: string
@@ -101,8 +142,13 @@ export function launchProcess(opts: {
   }
 
   const processId = crypto.randomUUID()
-  const projectName = path.basename(opts.projectPath)
-  const projectColor = hashColor(opts.projectPath)
+
+  // When resuming, resolve the correct CWD where the session file actually lives
+  const effectiveCwd = opts.resumeSessionId
+    ? findSessionCwd(opts.resumeSessionId, opts.projectPath)
+    : opts.projectPath
+  const projectName = path.basename(effectiveCwd)
+  const projectColor = hashColor(effectiveCwd)
 
   const args = [
     '-p',
@@ -120,7 +166,7 @@ export function launchProcess(opts: {
   // Use full path to avoid shell: true buffering issues on Windows
   const claudePath = path.join(os.homedir(), '.local', 'bin', 'claude.exe')
   const proc = spawn(claudePath, args, {
-    cwd: opts.projectPath,
+    cwd: effectiveCwd,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env },
   })
@@ -128,7 +174,7 @@ export function launchProcess(opts: {
   const item: CCQueueItem = {
     processId,
     sessionId: opts.resumeSessionId,
-    projectPath: opts.projectPath,
+    projectPath: effectiveCwd,
     projectName,
     projectColor,
     prompt: opts.prompt,
@@ -263,7 +309,8 @@ function handleMessage(processId: string, msg: any) {
 
     if (msg.subtype === 'error' || msg.is_error) {
       item.status = 'errored'
-      item.errorMessage = msg.result || msg.error || msg.message || JSON.stringify(msg).slice(0, 500)
+      const errors = Array.isArray(msg.errors) ? msg.errors.join('; ') : ''
+      item.errorMessage = errors || msg.result || msg.error || msg.message || JSON.stringify(msg).slice(0, 500)
     } else if (item.pendingInput) {
       // Input was queued while working — Claude will read it from stdin now
       item.status = 'working'
