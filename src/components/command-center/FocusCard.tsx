@@ -157,6 +157,33 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
   }
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault()
+        const blob = items[i].getAsFile()
+        if (!blob) continue
+        const mimeType = blob.type
+        const ext = mimeType.split('/')[1] || 'png'
+        const name = `pasted-image.${ext}`
+        const arrayBuf = await blob.arrayBuffer()
+        const bytes = new Uint8Array(arrayBuf)
+        let binary = ''
+        for (let j = 0; j < bytes.length; j++) binary += String.fromCharCode(bytes[j])
+        const base64 = btoa(binary)
+        setAttachments(prev => [...prev, {
+          type: 'image',
+          name,
+          mimeType,
+          sizeKb: Math.round(bytes.length / 1024),
+          base64,
+        }])
+        return
+      }
+    }
+  }
+
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index))
   }
@@ -317,7 +344,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
                 value={response}
                 onChange={e => setResponse(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type follow-up or drop files...'}
+                onPaste={handlePaste}
+                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type follow-up, drop files, or paste images...'}
                 className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
                 rows={1}
               />
