@@ -6,6 +6,7 @@ import LabTab from '../LabTab'
 import AgentsTab from '../agents/AgentsTab'
 import SessionsTab from '../sessions/SessionsTab'
 import CommandCenter from '../command-center/CommandCenter'
+import PomodoroTab from '../PomodoroTab'
 import Settings from '../Settings'
 
 export default function ContentArea() {
@@ -18,6 +19,7 @@ export default function ContentArea() {
     if (activeTab === 'sessions') return <SessionsTab />
     if (activeTab === 'memory') return <MemoryTab />
     if (activeTab === 'lab') return <LabTab />
+    if (activeTab === 'pomodoro') return <PomodoroTab />
     if (activeTab === 'settings') return <Settings />
     return <CommandCenter />
   }

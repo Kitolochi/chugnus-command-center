@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type Tab = 'command-center' | 'agents' | 'memories' | 'sessions' | 'memory' | 'lab' | 'settings'
+type Tab = 'command-center' | 'agents' | 'memories' | 'sessions' | 'memory' | 'lab' | 'settings' | 'pomodoro'
 
 interface AppState {
   activeTab: Tab
@@ -28,6 +28,12 @@ export const TAB_GROUPS: { id: string; label: string; tabs: { id: Tab; label: st
       { id: 'sessions', label: 'Sessions' },
       { id: 'memory', label: 'Context' },
       { id: 'lab', label: 'Lab' },
+    ]
+  },
+  {
+    id: 'productivity', label: 'Productivity',
+    tabs: [
+      { id: 'pomodoro', label: 'Focus' },
     ]
   },
   {
