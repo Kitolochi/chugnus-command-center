@@ -107,9 +107,7 @@ export default function HistoryView() {
   const [expandedMessages, setExpandedMessages] = useState<CLISessionMessage[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [activeTab, setActiveTab] = useState<'cli' | 'cc'>('cc')
-  const [groupBy, setGroupBy] = useState<'project' | 'time'>('time')
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all')
-  const [projectDescriptions, setProjectDescriptions] = useState<Record<string, string>>({})
   const [resumeError, setResumeError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -117,22 +115,6 @@ export default function HistoryView() {
     loadProjects()
     loadCliSessions()
   }, [])
-
-  // Load project descriptions from CLAUDE.md files
-  useEffect(() => {
-    if (projects.length === 0) return
-    const loadDescriptions = async () => {
-      const descs: Record<string, string> = {}
-      for (const p of projects) {
-        try {
-          const desc = await window.electronAPI.ccGetProjectDescription({ projectPath: p.path })
-          if (desc) descs[p.path] = desc
-        } catch {}
-      }
-      setProjectDescriptions(descs)
-    }
-    loadDescriptions()
-  }, [projects])
 
   const loadCliSessions = async () => {
     const sessions = await window.electronAPI.getCliSessions()
@@ -181,25 +163,38 @@ export default function HistoryView() {
     return true
   })
 
-  // Group sessions by overlapping time windows (concurrent work blocks)
-  const buildTimeGroups = (sessions: CLISession[]) => {
-    if (sessions.length === 0) return []
-    const sorted = [...sessions].sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
-    const groups: { start: number; end: number; sessions: CLISession[] }[] = []
-    for (const s of sorted) {
+  // Mark which sessions were concurrent (overlapping time windows)
+  const markConcurrent = (sessions: CLISession[]) => {
+    const sorted = [...sessions].sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
+    // Build overlap groups from chronological order
+    const chrono = [...sorted].reverse()
+    const groupMap = new Map<string, number>() // sessionId → groupId
+    let groupId = 0
+    const groups: { start: number; end: number; ids: Set<string> }[] = []
+    for (const s of chrono) {
       const sStart = new Date(s.created).getTime()
       const sEnd = new Date(s.modified).getTime()
       const last = groups[groups.length - 1]
       if (last && sStart <= last.end) {
-        // Overlaps with current group — merge
-        last.sessions.push(s)
+        last.ids.add(s.sessionId)
         last.end = Math.max(last.end, sEnd)
+        groupMap.set(s.sessionId, groupId)
       } else {
-        groups.push({ start: sStart, end: sEnd, sessions: [s] })
+        groupId++
+        groups.push({ start: sStart, end: sEnd, ids: new Set([s.sessionId]) })
+        groupMap.set(s.sessionId, groupId)
       }
     }
-    // Show newest groups first
-    return groups.reverse()
+    // For each session: is it part of a multi-session group?
+    const gidToSize = new Map<number, number>()
+    for (const [, gid] of groupMap) {
+      gidToSize.set(gid, (gidToSize.get(gid) || 0) + 1)
+    }
+    return sorted.map(s => ({
+      session: s,
+      isConcurrent: (gidToSize.get(groupMap.get(s.sessionId)!) || 1) > 1,
+      groupId: groupMap.get(s.sessionId)!,
+    }))
   }
 
   return (
@@ -234,12 +229,6 @@ export default function HistoryView() {
           <option value="30d">Last 30 Days</option>
         </select>
 
-        {activeTab === 'cli' && !historyFilter && (
-          <div className="flex bg-surface-2 rounded-lg p-0.5">
-            <button onClick={() => setGroupBy('time')} className={`px-2 py-1 text-[10px] rounded-md transition-all ${groupBy === 'time' ? 'bg-surface-4 text-white/90' : 'text-white/40 hover:text-white/60'}`}>By Time</button>
-            <button onClick={() => setGroupBy('project')} className={`px-2 py-1 text-[10px] rounded-md transition-all ${groupBy === 'project' ? 'bg-surface-4 text-white/90' : 'text-white/40 hover:text-white/60'}`}>By Project</button>
-          </div>
-        )}
         <div className="flex bg-surface-2 rounded-lg p-0.5 ml-auto">
           <button
             onClick={() => setActiveTab('cli')}
@@ -267,74 +256,31 @@ export default function HistoryView() {
         ) : (
           <div className="space-y-1">
             {(() => {
-              // Flat list when project-filtered
-              if (historyFilter) {
-                return filteredSessions.map(session => (
-                  <SessionRow key={session.sessionId} session={session} expandedId={expandedId} onExpand={handleExpandSession} onResume={handleResumeSession} loadingMessages={loadingMessages} expandedMessages={expandedMessages} showBadge={false} />
-                ))
-              }
+              const marked = markConcurrent(filteredSessions)
+              let lastGroupId: number | null = null
+              const rows: React.ReactNode[] = []
 
-              if (groupBy === 'time') {
-                // Group by overlapping time windows
-                const timeGroups = buildTimeGroups(filteredSessions)
-                return timeGroups.map((group, gi) => {
-                  const startDate = new Date(group.start)
-                  const endDate = new Date(group.end)
-                  const sameDay = startDate.toDateString() === endDate.toDateString()
-                  const timeLabel = sameDay
-                    ? `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    : `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`
-                  const uniqueProjects = [...new Set(group.sessions.map(s => projectNameFromEncoded(s.project)))]
-                  const isConcurrent = group.sessions.length > 1
-
-                  return (
-                    <div key={gi}>
-                      <div className="flex items-center gap-2 py-1.5 px-1">
-                        {isConcurrent && (
-                          <span className="px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue text-[9px] font-mono font-bold">
-                            {group.sessions.length}x
-                          </span>
-                        )}
-                        <span className="text-[10px] text-white/40 font-mono">{timeLabel}</span>
-                        <span className="text-[9px] text-white/20">{uniqueProjects.join(', ')}</span>
-                        <div className="flex-1 border-t border-white/[0.04]" />
-                      </div>
-                      {group.sessions.map(session => (
-                        <SessionRow key={session.sessionId} session={session} expandedId={expandedId} onExpand={handleExpandSession} onResume={handleResumeSession} loadingMessages={loadingMessages} expandedMessages={expandedMessages} showBadge={isConcurrent} />
-                      ))}
+              for (const { session, isConcurrent, groupId } of marked) {
+                // Show time header when entering a new concurrent group
+                if (isConcurrent && groupId !== lastGroupId) {
+                  const created = new Date(session.modified)
+                  rows.push(
+                    <div key={`g-${groupId}`} className="flex items-center gap-2 pt-2 pb-0.5 px-1">
+                      <span className="text-[9px] text-white/25 font-mono">{created.toLocaleDateString()} {created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="flex-1 border-t border-accent-blue/10" />
                     </div>
                   )
-                })
-              }
+                }
+                lastGroupId = groupId
 
-              // Group by project, sorted by most recent session in each group
-              const groups = new Map<string, CLISession[]>()
-              for (const s of filteredSessions) {
-                const list = groups.get(s.project) || []
-                list.push(s)
-                groups.set(s.project, list)
-              }
-              const sortedGroups = Array.from(groups.entries())
-                .sort((a, b) => new Date(b[1][0].modified).getTime() - new Date(a[1][0].modified).getTime())
-
-              return sortedGroups.map(([project, sessions]) => {
-                const projName = projectNameFromEncoded(project)
-                const matchedProject = projects.find(p => p.name === projName || p.path.endsWith(projName))
-                const description = matchedProject ? projectDescriptions[matchedProject.path] : ''
-
-                return (
-                <div key={project}>
-                  <div className="flex items-center gap-2 py-1.5 px-1">
-                    <span className="text-[10px] font-medium text-white/50">{projName}</span>
-                    <span className="text-[9px] text-white/20">{sessions.length} chats</span>
-                    {description && <span className="text-[9px] text-white/15 truncate max-w-[300px]">{description}</span>}
-                    <div className="flex-1 border-t border-white/[0.04]" />
+                rows.push(
+                  <div key={session.sessionId} className={isConcurrent ? 'ml-4 border-l-2 border-accent-blue/15 pl-2' : ''}>
+                    <SessionRow session={session} expandedId={expandedId} onExpand={handleExpandSession} onResume={handleResumeSession} loadingMessages={loadingMessages} expandedMessages={expandedMessages} showBadge={true} />
                   </div>
-                  {sessions.map(session => (
-                    <SessionRow key={session.sessionId} session={session} expandedId={expandedId} onExpand={handleExpandSession} onResume={handleResumeSession} loadingMessages={loadingMessages} expandedMessages={expandedMessages} showBadge={false} />
-                  ))}
-                </div>
-              )})
+                )
+              }
+
+              return rows
             })()}
           </div>
         )
