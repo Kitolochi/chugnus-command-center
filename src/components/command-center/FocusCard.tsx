@@ -268,7 +268,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
         )}
 
         {/* Response input with drag-and-drop */}
-        {item.status === 'awaiting_input' && (
+        {(item.status === 'awaiting_input' || item.status === 'working') && (
           <div
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
