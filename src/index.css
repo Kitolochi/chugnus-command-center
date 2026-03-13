@@ -214,6 +214,14 @@ select, input, textarea {
   font-family: 'DM Sans', system-ui, sans-serif;
 }
 
+kbd {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+h1, h2, h3 {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
 /* Focus ring */
 .focus-ring:focus {
   outline: none;

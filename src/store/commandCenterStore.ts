@@ -54,13 +54,19 @@ interface CommandCenterState {
   queue: CCQueueItem[]
   history: CCHistoryEntry[]
   historyFilter: string | null
-  activeView: 'queue' | 'history' | 'collab'
+  activeView: 'queue' | 'history' | 'collab' | 'codex'
   launchOpen: boolean
   projects: KnownProject[]
 
   // Collab state
   collabSession: CollabSession | null
   collabHistory: CollabSession[]
+
+  // Codex chat state
+  codexMessages: { role: 'user' | 'assistant'; content: string }[]
+  codexProject: string | null
+  codexProjectTree: string | null
+  codexLoading: boolean
 
   // Actions
   loadQueue: () => Promise<void>
@@ -70,7 +76,7 @@ interface CommandCenterState {
   respond: (processId: string, response: string) => Promise<void>
   dismiss: (processId: string) => Promise<void>
   kill: (processId: string) => Promise<void>
-  setActiveView: (view: 'queue' | 'history' | 'collab') => void
+  setActiveView: (view: 'queue' | 'history' | 'collab' | 'codex') => void
   setHistoryFilter: (filter: string | null) => void
   setLaunchOpen: (open: boolean) => void
   updateQueue: (queue: CCQueueItem[]) => void
@@ -82,6 +88,12 @@ interface CommandCenterState {
   killCollab: () => Promise<void>
   loadCollabHistory: () => Promise<void>
   updateCollabSession: (session: CollabSession) => void
+
+  // Codex actions
+  codexSetProject: (projectPath: string | null) => Promise<void>
+  codexSend: (message: string) => Promise<void>
+  codexClear: () => void
+  codexAttachFile: (filePath: string) => Promise<void>
 }
 
 export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
@@ -93,6 +105,10 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   projects: [],
   collabSession: null,
   collabHistory: [],
+  codexMessages: [],
+  codexProject: null,
+  codexProjectTree: null,
+  codexLoading: false,
 
   loadQueue: async () => {
     const queue = await window.electronAPI.ccGetQueue()
@@ -177,5 +193,50 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
     } else {
       set({ collabSession: session })
     }
+  },
+
+  // Codex actions
+  codexSetProject: async (projectPath) => {
+    if (!projectPath) {
+      set({ codexProject: null, codexProjectTree: null })
+      return
+    }
+    const tree = await window.electronAPI.codexReadTree({ projectPath })
+    set({ codexProject: projectPath, codexProjectTree: tree })
+  },
+
+  codexSend: async (message) => {
+    const { codexMessages, codexProject, codexProjectTree } = get()
+    const userMsg = { role: 'user' as const, content: message }
+    const updated = [...codexMessages, userMsg]
+    set({ codexMessages: updated, codexLoading: true })
+
+    try {
+      // Build messages with optional project context
+      const apiMessages: { role: string; content: string }[] = []
+      if (codexProject && codexProjectTree) {
+        apiMessages.push({
+          role: 'user',
+          content: `[Project context: ${codexProject}]\n\nFile tree:\n\`\`\`\n${codexProjectTree}\n\`\`\``,
+        })
+      }
+      apiMessages.push(...updated.map(m => ({ role: m.role, content: m.content })))
+
+      const { content } = await window.electronAPI.codexSend({ messages: apiMessages, projectPath: codexProject || undefined })
+      const assistantMsg = { role: 'assistant' as const, content }
+      set({ codexMessages: [...updated, assistantMsg], codexLoading: false })
+    } catch (err: any) {
+      const errorMsg = { role: 'assistant' as const, content: `Error: ${err.message}` }
+      set({ codexMessages: [...updated, errorMsg], codexLoading: false })
+    }
+  },
+
+  codexClear: () => set({ codexMessages: [], codexProject: null, codexProjectTree: null }),
+
+  codexAttachFile: async (filePath) => {
+    const content = await window.electronAPI.codexReadFile({ filePath })
+    const fileName = filePath.split(/[/\\]/).pop() || filePath
+    const fileMsg = { role: 'user' as const, content: `[File: ${fileName}]\n\`\`\`\n${content}\n\`\`\`` }
+    set({ codexMessages: [...get().codexMessages, fileMsg] })
   },
 }))

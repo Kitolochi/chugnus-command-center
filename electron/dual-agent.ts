@@ -438,3 +438,86 @@ async function runLoop(session: CollabSession, maxRounds: number, signal: AbortS
     }
   }
 }
+
+// === Codex (GPT 5.4) standalone chat ===
+
+const CODEX_SYSTEM = `You are GPT-5.4 (Codex), a senior software architect and code reviewer. The user may provide project file trees and source code for you to review.
+
+When reviewing code:
+- Focus on architecture, patterns, correctness, and potential issues
+- Be specific — reference file names and line-level concerns
+- Suggest concrete improvements, not vague advice
+- If the code is good, say so briefly and move on
+
+Be direct and concise. No pleasantries.`
+
+export async function codexChat(
+  messages: Array<{ role: string; content: string }>,
+): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
+  const fullMessages = [
+    { role: 'system', content: CODEX_SYSTEM },
+    ...messages,
+  ]
+
+  const { content, tokensIn, tokensOut } = await callProxy(GPT_ENDPOINT, {
+    model: GPT_MODEL,
+    messages: fullMessages,
+    max_tokens: MAX_TOKENS,
+    temperature: 0.5,
+  })
+
+  if (!content) throw new Error('Empty response from Codex')
+  return { content, tokensIn, tokensOut }
+}
+
+export function readProjectTree(projectPath: string, maxDepth = 3): string {
+  const fs = require('fs')
+  const path = require('path')
+  const lines: string[] = []
+  const IGNORE = new Set([
+    'node_modules', '.git', 'dist', 'build', '.next', '__pycache__',
+    '.venv', 'venv', '.cache', '.turbo', 'coverage', '.parcel-cache',
+  ])
+
+  function walk(dir: string, prefix: string, depth: number) {
+    if (depth > maxDepth) return
+    let entries: string[]
+    try {
+      entries = fs.readdirSync(dir).sort()
+    } catch {
+      return
+    }
+    for (const name of entries) {
+      if (name.startsWith('.') && name !== '.env.example') continue
+      if (IGNORE.has(name)) continue
+      const full = path.join(dir, name)
+      let stat
+      try { stat = fs.statSync(full) } catch { continue }
+      if (stat.isDirectory()) {
+        lines.push(`${prefix}${name}/`)
+        walk(full, prefix + '  ', depth + 1)
+      } else {
+        const kb = (stat.size / 1024).toFixed(1)
+        lines.push(`${prefix}${name} (${kb}k)`)
+      }
+    }
+  }
+
+  lines.push(`${path.basename(projectPath)}/`)
+  walk(projectPath, '  ', 1)
+  return lines.join('\n')
+}
+
+export function readFileContent(filePath: string): string {
+  const fs = require('fs')
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    // Cap at ~50k chars to avoid blowing up context
+    if (content.length > 50000) {
+      return content.slice(0, 50000) + '\n\n[...truncated at 50k chars]'
+    }
+    return content
+  } catch (err: any) {
+    throw new Error(`Cannot read file: ${err.message}`)
+  }
+}

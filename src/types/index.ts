@@ -679,6 +679,11 @@ export interface ElectronAPI {
   ccCreateProject: (opts: { name: string }) => Promise<{ path: string; name: string } | null>
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
 
+  // Codex Chat (GPT 5.4)
+  codexSend: (opts: { messages: { role: string; content: string }[]; projectPath?: string }) => Promise<{ content: string; tokensIn: number; tokensOut: number }>
+  codexReadTree: (opts: { projectPath: string }) => Promise<string>
+  codexReadFile: (opts: { filePath: string }) => Promise<string>
+
   // Dual-Agent Collab
   collabStart: (opts: { task: string; maxRounds?: number }) => Promise<{ sessionId: string }>
   collabResume: (opts: { sessionId: string; maxRounds?: number }) => Promise<{ sessionId: string }>

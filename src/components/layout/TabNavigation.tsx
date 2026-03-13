@@ -56,7 +56,7 @@ export default function TabNavigation() {
                   }
                 }
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all duration-200 relative group/tab rounded-lg ${
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium font-accent tracking-wide transition-all duration-200 relative group/tab rounded-lg ${
                 isActive ? 'text-white bg-white/[0.06]' : 'text-muted hover:text-white/70 hover:bg-white/[0.05]'
               }`}
             >
@@ -91,7 +91,7 @@ export default function TabNavigation() {
                 role="tab"
                 aria-selected={activeTab === tab.id}
                 onClick={() => { navigateToTab(tab.id); playTabSwitch() }}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 press-effect ${
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium font-accent tracking-wide transition-all duration-200 press-effect ${
                   activeTab === tab.id
                     ? 'bg-accent-blue/20 text-accent-blue shadow-sm shadow-accent-blue/10 border border-accent-blue/10'
                     : 'text-muted hover:text-white/70 hover:bg-white/[0.08] border border-transparent'

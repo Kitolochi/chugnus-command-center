@@ -178,6 +178,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => { ipcRenderer.removeListener('cc:queue-update', handler) }
   },
 
+  // Codex (GPT 5.4) Chat
+  codexSend: (opts: { messages: { role: string; content: string }[]; projectPath?: string }) =>
+    ipcRenderer.invoke('codex:send', opts),
+  codexReadTree: (opts: { projectPath: string }) =>
+    ipcRenderer.invoke('codex:read-tree', opts),
+  codexReadFile: (opts: { filePath: string }) =>
+    ipcRenderer.invoke('codex:read-file', opts),
+
   // Dual-Agent Collab
   collabStart: (opts: { task: string; maxRounds?: number }) =>
     ipcRenderer.invoke('collab:start', opts),

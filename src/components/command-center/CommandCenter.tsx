@@ -6,6 +6,7 @@ import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
 import HistoryView from './HistoryView'
 import CollabView from './CollabView'
+import CodexChatView from './CodexChatView'
 
 export default function CommandCenter() {
   const {
@@ -44,14 +45,14 @@ export default function CommandCenter() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-white/90">Command Center</h1>
+          <h1 className="text-sm font-semibold text-white/90 font-accent tracking-tight">Command Center</h1>
           {queue.length > 0 && (
             <div className="flex items-center gap-1 bg-surface-2 rounded-full px-2.5 py-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-accent-emerald animate-pulse" />
-              <span className="text-[10px] text-white/60 font-medium">{queue.length} active</span>
+              <span className="text-[10px] text-white/60 font-medium font-mono">{queue.length} active</span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-[10px]">
+          <div className="flex items-center gap-2 text-[10px] font-mono">
             {awaitingCount > 0 && (
               <span className="text-accent-amber">{awaitingCount} awaiting</span>
             )}
@@ -67,7 +68,7 @@ export default function CommandCenter() {
           <div className="flex bg-surface-2 rounded-lg p-0.5">
             <button
               onClick={() => setActiveView('queue')}
-              className={`px-2.5 py-1 text-[10px] rounded-md transition-all ${
+              className={`px-2.5 py-1 text-[10px] font-accent tracking-wide rounded-md transition-all ${
                 activeView === 'queue'
                   ? 'bg-surface-4 text-white/90'
                   : 'text-white/40 hover:text-white/60'
@@ -77,7 +78,7 @@ export default function CommandCenter() {
             </button>
             <button
               onClick={() => setActiveView('history')}
-              className={`px-2.5 py-1 text-[10px] rounded-md transition-all ${
+              className={`px-2.5 py-1 text-[10px] font-accent tracking-wide rounded-md transition-all ${
                 activeView === 'history'
                   ? 'bg-surface-4 text-white/90'
                   : 'text-white/40 hover:text-white/60'
@@ -87,13 +88,23 @@ export default function CommandCenter() {
             </button>
             <button
               onClick={() => setActiveView('collab')}
-              className={`px-2.5 py-1 text-[10px] rounded-md transition-all ${
+              className={`px-2.5 py-1 text-[10px] font-accent tracking-wide rounded-md transition-all ${
                 activeView === 'collab'
                   ? 'bg-surface-4 text-white/90'
                   : 'text-white/40 hover:text-white/60'
               }`}
             >
               Collab
+            </button>
+            <button
+              onClick={() => setActiveView('codex')}
+              className={`px-2.5 py-1 text-[10px] font-accent tracking-wide rounded-md transition-all ${
+                activeView === 'codex'
+                  ? 'bg-surface-4 text-white/90'
+                  : 'text-white/40 hover:text-white/60'
+              }`}
+            >
+              Codex
             </button>
           </div>
           <Button variant="primary" size="sm" onClick={() => setLaunchOpen(true)}>
@@ -103,7 +114,9 @@ export default function CommandCenter() {
       </div>
 
       {/* Content */}
-      {activeView === 'collab' ? (
+      {activeView === 'codex' ? (
+        <CodexChatView />
+      ) : activeView === 'collab' ? (
         <CollabView />
       ) : activeView === 'queue' ? (
         queue.length === 0 ? (
@@ -121,9 +134,9 @@ export default function CommandCenter() {
             ))}
           </div>
         )
-      ) : (
+      ) : activeView === 'history' ? (
         <HistoryView />
-      )}
+      ) : null}
 
     </div>
   )

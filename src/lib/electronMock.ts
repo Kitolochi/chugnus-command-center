@@ -460,6 +460,11 @@ export function installElectronMock() {
     ccCreateProject: async () => null,
     onCCQueueUpdate: noopUnsub as any,
 
+    // Codex Chat
+    codexSend: async () => ({ content: 'Mock Codex response', tokensIn: 0, tokensOut: 0 }),
+    codexReadTree: async () => 'mock-project/\n  src/\n    index.ts',
+    codexReadFile: async () => '// mock file content',
+
     // Dual-Agent Collab
     collabStart: async () => ({ sessionId: 'mock-session' }),
     collabResume: async () => ({ sessionId: 'mock-session' }),

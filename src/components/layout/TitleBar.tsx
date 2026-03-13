@@ -3,9 +3,9 @@ export default function TitleBar() {
     <div className="drag-region bg-surface-1/85 backdrop-blur-lg px-4 py-2.5 flex items-center justify-between border-b border-white/[0.06] relative z-10">
       <div className="flex items-center gap-2.5">
         <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center animate-breathe shadow-lg shadow-accent-blue/20">
-          <span className="text-[10px] font-bold text-white">C</span>
+          <span className="text-[10px] font-bold text-white font-accent">C</span>
         </div>
-        <h1 className="text-xs font-display font-semibold tracking-wide uppercase">
+        <h1 className="text-xs font-accent font-semibold tracking-widest uppercase">
           <span className="gradient-text">Chugnus Command Center</span>
         </h1>
       </div>
