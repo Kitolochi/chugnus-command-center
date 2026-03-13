@@ -267,6 +267,15 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           </div>
         )}
 
+        {/* Pending input indicator */}
+        {item.pendingInput && item.status === 'working' && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-blue/5 border border-accent-blue/10">
+            <Loader2 size={10} className="text-accent-blue animate-spin flex-shrink-0" />
+            <span className="text-[10px] text-accent-blue/70">Queued — will run after current turn:</span>
+            <span className="text-[10px] text-white/50 truncate">{item.pendingInput.slice(0, 80)}</span>
+          </div>
+        )}
+
         {/* Response input with drag-and-drop */}
         {(item.status === 'awaiting_input' || item.status === 'working') && (
           <div

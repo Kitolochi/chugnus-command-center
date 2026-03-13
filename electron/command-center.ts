@@ -17,6 +17,7 @@ export interface CCQueueItem {
   status: 'working' | 'awaiting_input' | 'errored'
   resultText?: string
   errorMessage?: string
+  pendingInput?: string
   filesChanged: string[]
   fullLog: CCStreamMessage[]
   costUsd: number
@@ -263,6 +264,10 @@ function handleMessage(processId: string, msg: any) {
     if (msg.subtype === 'error' || msg.is_error) {
       item.status = 'errored'
       item.errorMessage = msg.result || msg.error || msg.message || JSON.stringify(msg).slice(0, 500)
+    } else if (item.pendingInput) {
+      // Input was queued while working — Claude will read it from stdin now
+      item.status = 'working'
+      item.pendingInput = undefined
     } else {
       item.status = 'awaiting_input'
     }
@@ -294,7 +299,13 @@ export function respondToProcess(processId: string, response: string) {
   }) + '\n'
 
   m.item.fullLog.push({ type: 'user', text: response, timestamp: Date.now() })
-  m.item.status = 'working'
+  if (m.item.status === 'working') {
+    // Already mid-turn — input is buffered in stdin, will be read next turn
+    m.item.pendingInput = response
+  } else {
+    m.item.status = 'working'
+    m.item.pendingInput = undefined
+  }
   m.item.updatedAt = Date.now()
 
   try {

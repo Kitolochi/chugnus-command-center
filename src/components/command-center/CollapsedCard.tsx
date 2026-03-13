@@ -47,6 +47,7 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
               <MessageSquare size={10} />
             </button>
           )}
+          {item.pendingInput && <span className="text-[9px] text-accent-blue">queued</span>}
           {item.status === 'working' && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
           <span className={`text-[9px] ${
             item.status === 'awaiting_input' ? 'text-accent-amber' :

@@ -11,6 +11,7 @@ export interface CCQueueItem {
   status: 'working' | 'awaiting_input' | 'errored'
   resultText?: string
   errorMessage?: string
+  pendingInput?: string
   filesChanged: string[]
   fullLog: CCStreamMessage[]
   costUsd: number
