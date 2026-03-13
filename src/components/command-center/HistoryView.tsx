@@ -290,6 +290,42 @@ export default function HistoryView() {
           <p className="text-[11px] text-white/30 text-center py-8">No Command Center history yet. Launch a task to get started.</p>
         ) : (
           <div className="space-y-1">
+            {/* Parked section */}
+            {history.filter(e => e.status === 'parked').length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-2 py-1.5 px-1 mb-1">
+                  <span className="text-[10px] font-accent text-accent-amber tracking-wide">Parked</span>
+                  <div className="flex-1 border-t border-accent-amber/10" />
+                </div>
+                {history.filter(e => e.status === 'parked').map(entry => (
+                  <div key={entry.id} className="bg-surface-1 border border-accent-amber/10 rounded-lg px-4 py-2.5 flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Badge>{entry.projectName}</Badge>
+                      <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className="text-[9px] text-white/20">{new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}</span>
+                      {entry.sessionId && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await launch(entry.projectPath, 'Continue where we left off.', { resumeSessionId: entry.sessionId })
+                              setActiveView('queue')
+                            } catch (err: any) {
+                              setResumeError(err.message || 'Failed to resume')
+                              setTimeout(() => setResumeError(null), 4000)
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-md bg-accent-amber/15 text-accent-amber text-[10px] font-accent hover:bg-accent-amber/25 transition-all"
+                        >
+                          Resume
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {(() => {
               // Mark concurrent CC entries using same overlap logic
               const sorted = [...history].sort((a, b) => b.startedAt - a.startedAt)

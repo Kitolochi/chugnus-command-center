@@ -163,6 +163,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('cc:respond', opts),
   ccDismiss: (opts: { processId: string }) =>
     ipcRenderer.invoke('cc:dismiss', opts),
+  ccPark: (opts: { processId: string }) =>
+    ipcRenderer.invoke('cc:park', opts),
   ccKill: (opts: { processId: string }) =>
     ipcRenderer.invoke('cc:kill', opts),
   ccGetQueue: () => ipcRenderer.invoke('cc:get-queue'),

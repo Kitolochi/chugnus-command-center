@@ -681,6 +681,7 @@ export interface ElectronAPI {
   ccLaunch: (opts: { projectPath: string; prompt: string; model?: string; maxBudget?: number; resumeSessionId?: string }) => Promise<any>
   ccRespond: (opts: { processId: string; response: string }) => Promise<void>
   ccDismiss: (opts: { processId: string }) => Promise<any>
+  ccPark: (opts: { processId: string }) => Promise<any>
   ccKill: (opts: { processId: string }) => Promise<void>
   ccGetQueue: () => Promise<any[]>
   ccGetHistory: (opts?: { filter?: string; limit?: number }) => Promise<any[]>

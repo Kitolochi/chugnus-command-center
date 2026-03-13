@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Button, Badge } from '../ui'
-import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File } from 'lucide-react'
+import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
@@ -37,7 +37,7 @@ function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () =
 }
 
 export default function FocusCard({ item }: { item: CCQueueItem }) {
-  const { respond, dismiss, kill } = useCommandCenterStore()
+  const { respond, dismiss, park, kill } = useCommandCenterStore()
   const [response, setResponse] = useState('')
   const [showFiles, setShowFiles] = useState(false)
   const [showLog, setShowLog] = useState(false)
@@ -361,11 +361,18 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           <button onClick={handleKill} className="text-[10px] text-white/20 hover:text-accent-red transition-colors">
             {confirmKill ? 'Confirm kill?' : 'Kill'}
           </button>
-          {item.status === 'awaiting_input' && (
-            <Button variant="ghost" size="xs" onClick={handleDone}>
-              <Check size={10} /> Done
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {item.status === 'awaiting_input' && (
+              <Button variant="ghost" size="xs" onClick={() => park(item.processId)}>
+                <Pause size={10} /> Park
+              </Button>
+            )}
+            {item.status === 'awaiting_input' && (
+              <Button variant="ghost" size="xs" onClick={handleDone}>
+                <Check size={10} /> Done
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

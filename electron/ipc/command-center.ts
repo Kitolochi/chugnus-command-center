@@ -75,6 +75,27 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
     return item
   })
 
+  ipcMain.handle('cc:park', (_, opts: { processId: string }) => {
+    const item = dismissProcess(opts.processId)
+    if (item) {
+      let summary = item.resultText || 'Parked for later'
+      if (summary.length > 200) {
+        const firstSentence = summary.match(/^[^.!?]+[.!?]/)
+        summary = firstSentence ? firstSentence[0] + '...' : summary.slice(0, 200) + '...'
+      }
+      updateCCHistoryEntry(item.processId, {
+        summary,
+        status: 'parked',
+        sessionId: item.sessionId,
+        filesChanged: item.filesChanged,
+        costUsd: item.costUsd,
+        turnCount: item.turnCount,
+        completedAt: Date.now(),
+      })
+    }
+    return item
+  })
+
   ipcMain.handle('cc:kill', (_, opts: { processId: string }) => {
     const item = killProcess(opts.processId)
     updateCCHistoryEntry(opts.processId, {

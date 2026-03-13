@@ -451,6 +451,7 @@ export function installElectronMock() {
     ccLaunch: async () => ({ processId: 'mock' }),
     ccRespond: noop as any,
     ccDismiss: noop as any,
+    ccPark: noop as any,
     ccKill: noop as any,
     ccGetQueue: emptyArray as any,
     ccGetHistory: emptyArray as any,

@@ -37,7 +37,7 @@ export interface CCHistoryEntry {
   projectColor: string
   prompt: string
   summary: string
-  status: 'running' | 'completed' | 'killed'
+  status: 'running' | 'completed' | 'killed' | 'parked'
   filesChanged: string[]
   costUsd: number
   turnCount: number
@@ -77,6 +77,7 @@ interface CommandCenterState {
   launch: (projectPath: string, prompt: string, opts?: { model?: string; maxBudget?: number; resumeSessionId?: string }) => Promise<void>
   respond: (processId: string, response: string) => Promise<void>
   dismiss: (processId: string) => Promise<void>
+  park: (processId: string) => Promise<void>
   kill: (processId: string) => Promise<void>
   setActiveView: (view: 'queue' | 'history' | 'collab' | 'codex') => void
   setHistoryFilter: (filter: string | null) => void
@@ -141,7 +142,11 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
 
   dismiss: async (processId) => {
     await window.electronAPI.ccDismiss({ processId })
-    // Reload history since a new entry was added
+    get().loadHistory()
+  },
+
+  park: async (processId) => {
+    await window.electronAPI.ccPark({ processId })
     get().loadHistory()
   },
 

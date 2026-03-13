@@ -556,7 +556,7 @@ export interface CCHistoryEntry {
   projectColor: string
   prompt: string
   summary: string
-  status: 'running' | 'completed' | 'killed'
+  status: 'running' | 'completed' | 'killed' | 'parked'
   filesChanged: string[]
   costUsd: number
   turnCount: number
