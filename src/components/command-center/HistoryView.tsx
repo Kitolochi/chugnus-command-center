@@ -380,6 +380,12 @@ export default function HistoryView() {
                               <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />running
                             </span>
                           )}
+                          {entry.status === 'crashed' && (
+                            <span className="text-[9px] text-accent-amber">crashed</span>
+                          )}
+                          {entry.status === 'parked' && (
+                            <span className="text-[9px] text-accent-amber">parked</span>
+                          )}
                           {entry.status === 'killed' && (
                             <span className="text-[9px] text-accent-red">killed</span>
                           )}

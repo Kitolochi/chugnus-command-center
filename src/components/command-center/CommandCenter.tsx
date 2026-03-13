@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { Button, EmptyState } from '../ui'
-import { Layers, Plus } from 'lucide-react'
+import { Layers, Plus, RotateCcw } from 'lucide-react'
 import PomodoroWidget from './PomodoroWidget'
 import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
@@ -11,19 +11,33 @@ import CodexChatView from './CodexChatView'
 
 export default function CommandCenter() {
   const {
-    queue, activeView, focusId,
-    loadQueue, loadProjects,
+    queue, history, activeView, focusId,
+    loadQueue, loadHistory, loadProjects, launch,
     setActiveView, setLaunchOpen, setFocusId,
   } = useCommandCenterStore()
+
+  const [restoreDismissed, setRestoreDismissed] = useState(false)
 
   useEffect(() => {
     loadQueue()
     loadProjects()
+    loadHistory()
     const unsub = window.electronAPI.onCCQueueUpdate((q) => {
       useCommandCenterStore.getState().updateQueue(q)
     })
     return unsub
   }, [])
+
+  const crashedSessions = restoreDismissed ? [] : history.filter(e => e.status === 'crashed' && e.sessionId)
+
+  const handleRestoreAll = async () => {
+    for (const entry of crashedSessions) {
+      try {
+        await launch(entry.projectPath, 'Continue where we left off.', { resumeSessionId: entry.sessionId })
+      } catch {}
+    }
+    setRestoreDismissed(true)
+  }
 
   const awaitingCount = queue.filter(q => q.status === 'awaiting_input').length
   const workingCount = queue.filter(q => q.status === 'working').length
@@ -129,21 +143,42 @@ export default function CommandCenter() {
       ) : activeView === 'collab' ? (
         <CollabView />
       ) : activeView === 'queue' ? (
-        queue.length === 0 ? (
+        <>
+        {/* Restore crashed sessions bar */}
+        {crashedSessions.length > 0 && (
+          <div className="flex items-center justify-between bg-accent-amber/5 border border-accent-amber/15 rounded-lg px-4 py-2.5 mb-3">
+            <div className="flex items-center gap-2">
+              <RotateCcw size={12} className="text-accent-amber" />
+              <span className="text-[11px] text-white/70">
+                {crashedSessions.length} session{crashedSessions.length > 1 ? 's were' : ' was'} interrupted
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setRestoreDismissed(true)} className="text-[10px] text-white/30 hover:text-white/50 transition-colors">
+                Dismiss
+              </button>
+              <button onClick={handleRestoreAll} className="px-3 py-1 rounded-md bg-accent-amber/15 text-accent-amber text-[10px] font-accent hover:bg-accent-amber/25 transition-all">
+                Restore all
+              </button>
+            </div>
+          </div>
+        )}
+        {queue.length === 0 && crashedSessions.length === 0 ? (
           <EmptyState
             icon={<Layers size={20} className="text-white/30" />}
             title="No active tasks"
             description="Launch a Claude CLI instance to get started."
             action={{ label: 'New Task', onClick: () => setLaunchOpen(true) }}
           />
-        ) : (
+        ) : queue.length > 0 ? (
           <div className="space-y-2">
             {focusItem && <FocusCard item={focusItem} />}
             {collapsed.map(item => (
               <CollapsedCard key={item.processId} item={item} onFocus={() => setFocusId(item.processId)} />
             ))}
           </div>
-        )
+        ) : null}
+        </>
       ) : activeView === 'history' ? (
         <HistoryView />
       ) : null}

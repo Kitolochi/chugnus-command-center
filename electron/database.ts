@@ -556,7 +556,7 @@ export interface CCHistoryEntry {
   projectColor: string
   prompt: string
   summary: string
-  status: 'running' | 'completed' | 'killed' | 'parked'
+  status: 'running' | 'completed' | 'killed' | 'parked' | 'crashed'
   filesChanged: string[]
   costUsd: number
   turnCount: number
@@ -3296,8 +3296,8 @@ export function cleanupStaleCCHistory(): number {
   let cleaned = 0
   for (const entry of db.commandCenterHistory) {
     if (entry.status === 'running') {
-      entry.status = 'killed'
-      entry.summary = entry.summary === 'Running...' ? 'Lost (app restarted)' : entry.summary
+      entry.status = 'crashed'
+      entry.summary = entry.summary === 'Running...' ? 'Lost (app closed)' : entry.summary
       entry.completedAt = entry.startedAt
       cleaned++
     }
