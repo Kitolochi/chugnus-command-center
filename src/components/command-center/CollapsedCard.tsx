@@ -3,7 +3,7 @@ import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterSto
 import { Badge } from '../ui'
 import { Loader2, Send, MessageSquare } from 'lucide-react'
 
-export default function CollapsedCard({ item }: { item: CCQueueItem }) {
+export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; onFocus?: () => void }) {
   const { respond } = useCommandCenterStore()
   const [showInput, setShowInput] = useState(false)
   const [text, setText] = useState('')
@@ -30,7 +30,7 @@ export default function CollapsedCard({ item }: { item: CCQueueItem }) {
 
   return (
     <div className={`bg-surface-1 border border-white/[0.04] rounded-lg ${opacity} hover:opacity-100 transition-opacity`}>
-      <div className="px-4 py-2.5 flex items-center justify-between">
+      <div className="px-4 py-2.5 flex items-center justify-between cursor-pointer" onClick={onFocus}>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Badge>{item.projectName}</Badge>
           <span className="text-[10px] text-white/40 truncate max-w-[200px]">

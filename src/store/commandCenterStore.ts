@@ -57,6 +57,7 @@ interface CommandCenterState {
   activeView: 'queue' | 'history' | 'collab' | 'codex'
   launchOpen: boolean
   projects: KnownProject[]
+  focusId: string | null
 
   // Collab state
   collabSession: CollabSession | null
@@ -79,6 +80,7 @@ interface CommandCenterState {
   setActiveView: (view: 'queue' | 'history' | 'collab' | 'codex') => void
   setHistoryFilter: (filter: string | null) => void
   setLaunchOpen: (open: boolean) => void
+  setFocusId: (id: string | null) => void
   updateQueue: (queue: CCQueueItem[]) => void
 
   // Collab actions
@@ -103,6 +105,7 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   activeView: 'queue',
   launchOpen: false,
   projects: [],
+  focusId: null,
   collabSession: null,
   collabHistory: [],
   codexMessages: [],
@@ -151,6 +154,7 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
     get().loadHistory(filter)
   },
   setLaunchOpen: (open) => set({ launchOpen: open }),
+  setFocusId: (id) => set({ focusId: id }),
   updateQueue: (queue) => set({ queue }),
 
   // Collab actions

@@ -11,9 +11,9 @@ import CodexChatView from './CodexChatView'
 
 export default function CommandCenter() {
   const {
-    queue, activeView,
+    queue, activeView, focusId,
     loadQueue, loadProjects,
-    setActiveView, setLaunchOpen,
+    setActiveView, setLaunchOpen, setFocusId,
   } = useCommandCenterStore()
 
   useEffect(() => {
@@ -38,8 +38,9 @@ export default function CommandCenter() {
     return a.updatedAt - b.updatedAt
   })
 
-  const focusItem = sorted[0]
-  const collapsed = sorted.slice(1)
+  // If user picked a focus, use that; otherwise default to top of sorted list
+  const focusItem = (focusId && sorted.find(s => s.processId === focusId)) || sorted[0]
+  const collapsed = sorted.filter(s => s.processId !== focusItem?.processId)
 
   return (
     <div className="p-6 pt-10 max-w-3xl mx-auto">
@@ -136,7 +137,7 @@ export default function CommandCenter() {
           <div className="space-y-2">
             {focusItem && <FocusCard item={focusItem} />}
             {collapsed.map(item => (
-              <CollapsedCard key={item.processId} item={item} />
+              <CollapsedCard key={item.processId} item={item} onFocus={() => setFocusId(item.processId)} />
             ))}
           </div>
         )
