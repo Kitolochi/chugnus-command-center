@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { Button, EmptyState } from '../ui'
 import { Layers, Plus } from 'lucide-react'
+import PomodoroWidget from './PomodoroWidget'
 import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
 import HistoryView from './HistoryView'
@@ -42,6 +43,11 @@ export default function CommandCenter() {
 
   return (
     <div className="p-6 pt-10 max-w-3xl mx-auto">
+      {/* Pomodoro */}
+      <div className="mb-4">
+        <PomodoroWidget />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
