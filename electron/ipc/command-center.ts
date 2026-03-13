@@ -1,5 +1,8 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { execSync } from 'child_process'
+import * as path from 'path'
+import * as os from 'os'
+import * as fs from 'fs'
 import {
   initCommandCenter,
   launchProcess,
