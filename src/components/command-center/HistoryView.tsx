@@ -290,87 +290,127 @@ export default function HistoryView() {
           <p className="text-[11px] text-white/30 text-center py-8">No Command Center history yet. Launch a task to get started.</p>
         ) : (
           <div className="space-y-1">
-            {history.map(entry => (
-              <div key={entry.id}>
-                <div
-                  onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
-                  className="bg-surface-1 border border-white/[0.04] rounded-lg px-4 py-2.5 flex items-center justify-between cursor-pointer hover:border-white/[0.08] transition-all"
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <ChevronRight size={10} className={`text-white/20 transition-transform flex-shrink-0 ${expandedId === entry.id ? 'rotate-90' : ''}`} />
-                    <Badge>{entry.projectName}</Badge>
-                    <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                    {entry.status === 'running' && (
-                      <span className="text-[9px] text-accent-green flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />running
-                      </span>
-                    )}
-                    {entry.status === 'killed' && (
-                      <span className="text-[9px] text-accent-red">killed</span>
-                    )}
-                    <span className="text-[9px] text-white/20 flex items-center gap-1">
-                      <DollarSign size={8} />{entry.costUsd.toFixed(2)}
-                    </span>
-                    <span className="text-[9px] text-white/20 flex items-center gap-1">
-                      <FileEdit size={8} />{entry.filesChanged.length}
-                    </span>
-                    <span className="text-[9px] text-white/20">
-                      {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
-                    </span>
-                    {entry.sessionId && entry.status !== 'running' && (
-                      <button
-                        onClick={async e => {
-                          e.stopPropagation()
-                          try {
-                            await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', { resumeSessionId: entry.sessionId })
-                            setActiveView('queue')
-                          } catch (err: any) {
-                            setResumeError(err.message || 'Failed to resume session')
-                            setTimeout(() => setResumeError(null), 4000)
-                          }
-                        }}
-                        title="Resume this session"
-                        className="p-1 rounded text-white/20 hover:text-accent-green hover:bg-white/[0.04] transition-colors"
-                      >
-                        <Play size={10} />
-                      </button>
-                    )}
-                  </div>
-                </div>
+            {(() => {
+              // Mark concurrent CC entries using same overlap logic
+              const sorted = [...history].sort((a, b) => b.startedAt - a.startedAt)
+              const chrono = [...sorted].reverse()
+              const groupMap = new Map<string, number>()
+              let gid = 0
+              const groups: { start: number; end: number }[] = []
+              for (const e of chrono) {
+                const eEnd = e.completedAt || Date.now()
+                const last = groups[groups.length - 1]
+                if (last && e.startedAt <= last.end) {
+                  last.end = Math.max(last.end, eEnd)
+                  groupMap.set(e.id, gid)
+                } else {
+                  gid++
+                  groups.push({ start: e.startedAt, end: eEnd })
+                  groupMap.set(e.id, gid)
+                }
+              }
+              const gidToSize = new Map<number, number>()
+              for (const [, g] of groupMap) gidToSize.set(g, (gidToSize.get(g) || 0) + 1)
 
-                {expandedId === entry.id && (
-                  <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-1 space-y-2">
-                    <div>
-                      <span className="text-[9px] text-white/30 uppercase">Prompt</span>
-                      <p className="text-[11px] text-white/60 mt-0.5">{entry.prompt}</p>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-white/30 uppercase">Summary</span>
-                      <p className="text-[11px] text-white/60 mt-0.5">{entry.summary}</p>
-                    </div>
-                    {entry.filesChanged.length > 0 && (
-                      <div>
-                        <span className="text-[9px] text-white/30 uppercase">Files ({entry.filesChanged.length})</span>
-                        <div className="mt-1 space-y-0.5">
-                          {entry.filesChanged.map((f, i) => (
-                            <div key={i} className="text-[10px] text-white/40 font-mono">{f}</div>
-                          ))}
-                        </div>
+              let lastGid: number | null = null
+              return sorted.map(entry => {
+                const entryGid = groupMap.get(entry.id)!
+                const isConcurrent = (gidToSize.get(entryGid) || 1) > 1
+                const showHeader = isConcurrent && entryGid !== lastGid
+                lastGid = entryGid
+                const ts = new Date(entry.startedAt)
+
+                return (
+                  <div key={entry.id}>
+                    {showHeader && (
+                      <div className="flex items-center gap-2 pt-2 pb-0.5 px-1">
+                        <span className="text-[9px] text-white/25 font-mono">{ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <div className="flex-1 border-t border-accent-blue/10" />
                       </div>
                     )}
-                    <div className="flex gap-4 text-[9px] text-white/30 pt-1">
-                      <span>Cost: ${entry.costUsd.toFixed(4)}</span>
-                      <span>Turns: {entry.turnCount}</span>
-                      {entry.completedAt > 0 && (
-                        <span>Duration: {Math.round((entry.completedAt - entry.startedAt) / 60000)}m</span>
+                    <div className={isConcurrent ? 'ml-4 border-l-2 border-accent-blue/15 pl-2' : ''}>
+                      <div
+                        onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                        className="bg-surface-1 border border-white/[0.04] rounded-lg px-4 py-2.5 flex items-center justify-between cursor-pointer hover:border-white/[0.08] transition-all"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <ChevronRight size={10} className={`text-white/20 transition-transform flex-shrink-0 ${expandedId === entry.id ? 'rotate-90' : ''}`} />
+                          <Badge>{entry.projectName}</Badge>
+                          <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                          {entry.status === 'running' && (
+                            <span className="text-[9px] text-accent-green flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />running
+                            </span>
+                          )}
+                          {entry.status === 'killed' && (
+                            <span className="text-[9px] text-accent-red">killed</span>
+                          )}
+                          <span className="text-[9px] text-white/20 flex items-center gap-1">
+                            <DollarSign size={8} />{entry.costUsd.toFixed(2)}
+                          </span>
+                          <span className="text-[9px] text-white/20 flex items-center gap-1">
+                            <FileEdit size={8} />{entry.filesChanged.length}
+                          </span>
+                          <span className="text-[9px] text-white/20">
+                            {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
+                          </span>
+                          {entry.sessionId && entry.status !== 'running' && (
+                            <button
+                              onClick={async e => {
+                                e.stopPropagation()
+                                try {
+                                  await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', { resumeSessionId: entry.sessionId })
+                                  setActiveView('queue')
+                                } catch (err: any) {
+                                  setResumeError(err.message || 'Failed to resume session')
+                                  setTimeout(() => setResumeError(null), 4000)
+                                }
+                              }}
+                              title="Resume this session"
+                              className="p-1 rounded text-white/20 hover:text-accent-green hover:bg-white/[0.04] transition-colors"
+                            >
+                              <Play size={10} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {expandedId === entry.id && (
+                        <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-1 space-y-2">
+                          <div>
+                            <span className="text-[9px] text-white/30 uppercase">Prompt</span>
+                            <p className="text-[11px] text-white/60 mt-0.5">{entry.prompt}</p>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-white/30 uppercase">Summary</span>
+                            <p className="text-[11px] text-white/60 mt-0.5">{entry.summary}</p>
+                          </div>
+                          {entry.filesChanged.length > 0 && (
+                            <div>
+                              <span className="text-[9px] text-white/30 uppercase">Files ({entry.filesChanged.length})</span>
+                              <div className="mt-1 space-y-0.5">
+                                {entry.filesChanged.map((f, i) => (
+                                  <div key={i} className="text-[10px] text-white/40 font-mono">{f}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex gap-4 text-[9px] text-white/30 pt-1">
+                            <span>Cost: ${entry.costUsd.toFixed(4)}</span>
+                            <span>Turns: {entry.turnCount}</span>
+                            {entry.completedAt > 0 && (
+                              <span>Duration: {Math.round((entry.completedAt - entry.startedAt) / 60000)}m</span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                )
+              })
+            })()}
           </div>
         )
       )}
