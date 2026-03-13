@@ -504,6 +504,17 @@ export interface AVHourOfWeek {
   cells: AVHourOfWeekCell[]
 }
 
+// === File Attachment Types ===
+
+export interface FileAttachment {
+  type: 'text' | 'image' | 'video' | 'binary'
+  name: string
+  mimeType: string
+  sizeKb: number
+  textContent?: string
+  base64?: string
+}
+
 // === Dual-Agent Collab Types ===
 
 export type CollabAgent = 'claude' | 'gpt'
@@ -683,6 +694,7 @@ export interface ElectronAPI {
   codexSend: (opts: { messages: { role: string; content: string }[]; projectPath?: string }) => Promise<{ content: string; tokensIn: number; tokensOut: number }>
   codexReadTree: (opts: { projectPath: string }) => Promise<string>
   codexReadFile: (opts: { filePath: string }) => Promise<string>
+  codexReadFileForChat: (opts: { filePath: string }) => Promise<FileAttachment>
 
   // Dual-Agent Collab
   collabStart: (opts: { task: string; maxRounds?: number }) => Promise<{ sessionId: string }>

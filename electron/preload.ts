@@ -185,6 +185,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('codex:read-tree', opts),
   codexReadFile: (opts: { filePath: string }) =>
     ipcRenderer.invoke('codex:read-file', opts),
+  codexReadFileForChat: (opts: { filePath: string }) =>
+    ipcRenderer.invoke('codex:read-file-for-chat', opts),
 
   // Dual-Agent Collab
   collabStart: (opts: { task: string; maxRounds?: number }) =>

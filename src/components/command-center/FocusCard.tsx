@@ -1,9 +1,40 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Button, Badge } from '../ui'
-import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal } from 'lucide-react'
+import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import { renderMarkdown } from '../../utils/markdown'
+import type { FileAttachment } from '../../types'
+
+function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () => void }) {
+  const Icon = att.type === 'image' ? Image
+    : att.type === 'video' ? Film
+    : att.type === 'text' ? FileText
+    : File
+
+  const color = att.type === 'image' ? 'text-accent-purple'
+    : att.type === 'video' ? 'text-accent-rose'
+    : att.type === 'text' ? 'text-accent-blue'
+    : 'text-white/40'
+
+  return (
+    <div className="flex items-center gap-1.5 bg-surface-3 border border-white/[0.06] rounded-lg px-2 py-1 group">
+      <Icon size={10} className={color} />
+      <span className="text-[9px] text-white/60 font-mono max-w-[120px] truncate">{att.name}</span>
+      <span className="text-[8px] text-white/25 font-mono">{att.sizeKb}k</span>
+      {att.type === 'image' && att.base64 && (
+        <img
+          src={`data:${att.mimeType};base64,${att.base64}`}
+          alt={att.name}
+          className="w-6 h-6 rounded object-cover border border-white/10"
+        />
+      )}
+      <button onClick={onRemove} className="text-white/20 hover:text-accent-red transition-colors ml-0.5">
+        <X size={8} />
+      </button>
+    </div>
+  )
+}
 
 export default function FocusCard({ item }: { item: CCQueueItem }) {
   const { respond, dismiss, kill } = useCommandCenterStore()
@@ -12,7 +43,11 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const [showLog, setShowLog] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [confirmKill, setConfirmKill] = useState(false)
+  const [attachments, setAttachments] = useState<FileAttachment[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [loadingFiles, setLoadingFiles] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const dragCountRef = useRef(0)
 
   useEffect(() => {
     if (item.status === 'awaiting_input') inputRef.current?.focus()
@@ -26,10 +61,34 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
   }, [])
 
+  const buildResponseWithAttachments = (): string => {
+    const parts: string[] = []
+
+    for (const att of attachments) {
+      if (att.type === 'text' && att.textContent) {
+        parts.push(`[File: ${att.name}]\n\`\`\`\n${att.textContent}\n\`\`\``)
+      } else if (att.type === 'image') {
+        parts.push(`[Image attached: ${att.name} (${att.sizeKb}KB, ${att.mimeType})]`)
+      } else if (att.type === 'video') {
+        parts.push(`[Video file: ${att.name} (${att.sizeKb}KB, ${att.mimeType})]`)
+      } else {
+        parts.push(`[File: ${att.name} (${att.sizeKb}KB, ${att.mimeType})]`)
+      }
+    }
+
+    if (response.trim()) {
+      parts.push(response.trim())
+    }
+
+    return parts.join('\n\n')
+  }
+
   const handleSend = () => {
-    if (!response.trim()) return
-    respond(item.processId, response.trim())
+    const full = buildResponseWithAttachments()
+    if (!full) return
+    respond(item.processId, full)
     setResponse('')
+    setAttachments([])
   }
 
   const handleDone = () => {
@@ -43,6 +102,63 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     if (!confirmKill) { setConfirmKill(true); return }
     kill(item.processId)
     setConfirmKill(false)
+  }
+
+  const processDroppedFiles = async (files: FileList) => {
+    setLoadingFiles(true)
+    const newAttachments: FileAttachment[] = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const filePath = (file as any).path as string
+      if (!filePath) continue
+
+      try {
+        const att = await window.electronAPI.codexReadFileForChat({ filePath })
+        newAttachments.push(att)
+      } catch (err: any) {
+        console.error(`Failed to read ${filePath}:`, err)
+      }
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newAttachments])
+    }
+    setLoadingFiles(false)
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCountRef.current++
+    if (dragCountRef.current === 1) setDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCountRef.current--
+    if (dragCountRef.current === 0) setDragging(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCountRef.current = 0
+    setDragging(false)
+
+    if (e.dataTransfer.files.length > 0) {
+      processDroppedFiles(e.dataTransfer.files)
+    }
+  }
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index))
   }
 
   const statusColor = {
@@ -65,6 +181,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const truncated = displayText && displayText.length > 500
   const shownText = truncated ? displayText.slice(0, 500) : displayText
   const [showFullText, setShowFullText] = useState(false)
+
+  const canSend = response.trim() || attachments.length > 0
 
   return (
     <div className="relative">
@@ -149,21 +267,55 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           </div>
         )}
 
-        {/* Response input */}
+        {/* Response input with drag-and-drop */}
         {item.status === 'awaiting_input' && (
-          <div className="flex gap-2 items-end">
-            <textarea
-              ref={inputRef}
-              value={response}
-              onChange={e => setResponse(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              placeholder="Type follow-up..."
-              className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
-              rows={1}
-            />
-            <Button variant="primary" size="sm" onClick={handleSend} disabled={!response.trim()}>
-              <Send size={12} />
-            </Button>
+          <div
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className="relative"
+          >
+            {/* Drag overlay */}
+            {dragging && (
+              <div className="absolute inset-0 z-10 rounded-lg border-2 border-dashed border-accent-blue/50 bg-accent-blue/5 flex items-center justify-center pointer-events-none">
+                <div className="flex flex-col items-center gap-1">
+                  <File size={20} className="text-accent-blue/60" />
+                  <span className="text-[11px] text-accent-blue/70 font-accent">Drop files here</span>
+                </div>
+              </div>
+            )}
+
+            {/* Staged attachments */}
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {attachments.map((att, i) => (
+                  <AttachmentChip key={i} att={att} onRemove={() => removeAttachment(i)} />
+                ))}
+              </div>
+            )}
+
+            {loadingFiles && (
+              <div className="flex items-center gap-2 mb-2 text-[10px] text-white/40">
+                <Loader2 size={10} className="animate-spin" />
+                Reading files...
+              </div>
+            )}
+
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={inputRef}
+                value={response}
+                onChange={e => setResponse(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type follow-up or drop files...'}
+                className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
+                rows={1}
+              />
+              <Button variant="primary" size="sm" onClick={handleSend} disabled={!canSend}>
+                <Send size={12} />
+              </Button>
+            </div>
           </div>
         )}
 

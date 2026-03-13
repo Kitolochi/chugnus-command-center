@@ -521,3 +521,91 @@ export function readFileContent(filePath: string): string {
     throw new Error(`Cannot read file: ${err.message}`)
   }
 }
+
+// === File attachment for Codex chat (multi-type support) ===
+
+const TEXT_EXTENSIONS = new Set([
+  '.txt', '.md', '.ts', '.tsx', '.js', '.jsx', '.py', '.json', '.yaml', '.yml',
+  '.toml', '.css', '.scss', '.less', '.html', '.xml', '.csv', '.sql', '.sh',
+  '.bat', '.ps1', '.env', '.gitignore', '.dockerfile', '.makefile', '.cfg',
+  '.ini', '.conf', '.rs', '.go', '.java', '.kt', '.swift', '.c', '.cpp', '.h',
+  '.hpp', '.rb', '.php', '.lua', '.r', '.m', '.vue', '.svelte', '.astro',
+])
+
+const IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp',
+])
+
+const VIDEO_EXTENSIONS = new Set([
+  '.mp4', '.mov', '.webm', '.avi', '.mkv', '.flv', '.wmv',
+])
+
+export interface FileAttachment {
+  type: 'text' | 'image' | 'video' | 'binary'
+  name: string
+  mimeType: string
+  sizeKb: number
+  textContent?: string   // for text files
+  base64?: string        // for images
+}
+
+const MIME_MAP: Record<string, string> = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',
+  '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
+  '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska',
+  '.pdf': 'application/pdf', '.zip': 'application/zip',
+}
+
+export function readFileForChat(filePath: string): FileAttachment {
+  const fs = require('fs')
+  const path = require('path')
+
+  const name = path.basename(filePath)
+  const ext = path.extname(filePath).toLowerCase()
+  let stat
+  try { stat = fs.statSync(filePath) } catch (err: any) {
+    throw new Error(`Cannot access file: ${err.message}`)
+  }
+  const sizeKb = Math.round(stat.size / 1024 * 10) / 10
+
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    // Cap images at 20MB
+    if (stat.size > 20 * 1024 * 1024) {
+      throw new Error(`Image too large (${sizeKb}KB). Max 20MB.`)
+    }
+    const buffer = fs.readFileSync(filePath)
+    return {
+      type: 'image',
+      name,
+      mimeType: MIME_MAP[ext] || 'image/png',
+      sizeKb,
+      base64: buffer.toString('base64'),
+    }
+  }
+
+  if (TEXT_EXTENSIONS.has(ext) || ext === '') {
+    let content = fs.readFileSync(filePath, 'utf-8')
+    if (content.length > 50000) {
+      content = content.slice(0, 50000) + '\n\n[...truncated at 50k chars]'
+    }
+    return { type: 'text', name, mimeType: 'text/plain', sizeKb, textContent: content }
+  }
+
+  if (VIDEO_EXTENSIONS.has(ext)) {
+    return {
+      type: 'video',
+      name,
+      mimeType: MIME_MAP[ext] || 'video/mp4',
+      sizeKb,
+    }
+  }
+
+  // Binary / unknown — just metadata
+  return {
+    type: 'binary',
+    name,
+    mimeType: MIME_MAP[ext] || 'application/octet-stream',
+    sizeKb,
+  }
+}

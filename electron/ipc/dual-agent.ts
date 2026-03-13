@@ -11,6 +11,7 @@ import {
   codexChat,
   readProjectTree,
   readFileContent,
+  readFileForChat,
 } from '../dual-agent'
 import { addCollabHistoryEntry, getCollabHistory, getCollabHistoryEntry } from '../database'
 
@@ -61,5 +62,9 @@ export function registerDualAgentHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('codex:read-file', (_, opts: { filePath: string }) => {
     return readFileContent(opts.filePath)
+  })
+
+  ipcMain.handle('codex:read-file-for-chat', (_, opts: { filePath: string }) => {
+    return readFileForChat(opts.filePath)
   })
 }

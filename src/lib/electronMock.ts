@@ -464,6 +464,7 @@ export function installElectronMock() {
     codexSend: async () => ({ content: 'Mock Codex response', tokensIn: 0, tokensOut: 0 }),
     codexReadTree: async () => 'mock-project/\n  src/\n    index.ts',
     codexReadFile: async () => '// mock file content',
+    codexReadFileForChat: async () => ({ type: 'text', name: 'mock.txt', mimeType: 'text/plain', sizeKb: 1, textContent: '// mock' }),
 
     // Dual-Agent Collab
     collabStart: async () => ({ sessionId: 'mock-session' }),
