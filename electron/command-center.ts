@@ -157,6 +157,7 @@ export function launchProcess(opts: {
     '--input-format', 'stream-json',
     '--verbose',
     '--dangerously-skip-permissions',
+    '--disallowed-tools', 'EnterPlanMode,ExitPlanMode',
   ]
   if (opts.resumeSessionId) {
     args.push('--resume', opts.resumeSessionId)
