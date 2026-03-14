@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { Badge } from '../ui'
-import { ChevronRight, DollarSign, FileEdit, MessageSquare, Clock, Play } from 'lucide-react'
+import { ChevronRight, DollarSign, FileEdit, MessageSquare, Clock, Play, Check } from 'lucide-react'
 import type { CLISession, CLISessionMessage } from '../../types'
 
 function relativeTime(dateStr: string): string {
@@ -326,9 +326,96 @@ export default function HistoryView() {
                 ))}
               </div>
             )}
+
+            {/* Completed section */}
+            {history.filter(e => e.status === 'completed').length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-2 py-1.5 px-1 mb-1">
+                  <span className="text-[10px] font-accent text-accent-emerald tracking-wide">Completed</span>
+                  <span className="text-[9px] text-white/20">{history.filter(e => e.status === 'completed').length}</span>
+                  <div className="flex-1 border-t border-accent-emerald/10" />
+                </div>
+                {history.filter(e => e.status === 'completed').map(entry => (
+                  <div key={entry.id}>
+                    <div
+                      onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                      className="bg-surface-1 border border-accent-emerald/10 rounded-lg px-4 py-2.5 flex items-center justify-between mb-1 cursor-pointer hover:border-accent-emerald/20 transition-all"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Check size={10} className="text-accent-emerald flex-shrink-0" />
+                        <Badge>{entry.projectName}</Badge>
+                        <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                        <span className="text-[9px] text-white/20 flex items-center gap-1">
+                          <DollarSign size={8} />{entry.costUsd.toFixed(2)}
+                        </span>
+                        <span className="text-[9px] text-white/20 flex items-center gap-1">
+                          <FileEdit size={8} />{entry.filesChanged.length}
+                        </span>
+                        <span className="text-[9px] text-white/20">
+                          {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
+                        </span>
+                        {entry.sessionId && (
+                          <button
+                            onClick={async e => {
+                              e.stopPropagation()
+                              try {
+                                await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', { resumeSessionId: entry.sessionId })
+                                setActiveView('queue')
+                              } catch (err: any) {
+                                setResumeError(err.message || 'Failed to resume session')
+                                setTimeout(() => setResumeError(null), 4000)
+                              }
+                            }}
+                            title="Resume this session"
+                            className="p-1 rounded text-white/20 hover:text-accent-green hover:bg-white/[0.04] transition-colors"
+                          >
+                            <Play size={10} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {expandedId === entry.id && (
+                      <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-2 mb-1 space-y-2">
+                        <div>
+                          <span className="text-[9px] text-white/30 uppercase">Prompt</span>
+                          <p className="text-[11px] text-white/60 mt-0.5">{entry.prompt}</p>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-white/30 uppercase">Summary</span>
+                          <p className="text-[11px] text-white/60 mt-0.5">{entry.summary}</p>
+                        </div>
+                        {entry.filesChanged.length > 0 && (
+                          <div>
+                            <span className="text-[9px] text-white/30 uppercase">Files ({entry.filesChanged.length})</span>
+                            <div className="mt-1 space-y-0.5">
+                              {entry.filesChanged.map((f, i) => (
+                                <div key={i} className="text-[10px] text-white/40 font-mono">{f}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-4 text-[9px] text-white/30 pt-1">
+                          <span>Cost: ${entry.costUsd.toFixed(4)}</span>
+                          <span>Turns: {entry.turnCount}</span>
+                          {entry.completedAt > 0 && (
+                            <span>Duration: {Math.round((entry.completedAt - entry.startedAt) / 60000)}m</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {(() => {
+              // Timeline: everything except completed/parked (those have their own sections)
+              const remaining = history.filter(e => e.status !== 'completed' && e.status !== 'parked')
+              if (remaining.length === 0) return null
+
               // Mark concurrent CC entries using same overlap logic
-              const sorted = [...history].sort((a, b) => b.startedAt - a.startedAt)
+              const sorted = [...remaining].sort((a, b) => b.startedAt - a.startedAt)
               const chrono = [...sorted].reverse()
               const groupMap = new Map<string, number>()
               let gid = 0
@@ -349,14 +436,22 @@ export default function HistoryView() {
               for (const [, g] of groupMap) gidToSize.set(g, (gidToSize.get(g) || 0) + 1)
 
               let lastGid: number | null = null
-              return sorted.map(entry => {
+              const rows: React.ReactNode[] = []
+              rows.push(
+                <div key="other-header" className="flex items-center gap-2 py-1.5 px-1 mb-1">
+                  <span className="text-[10px] font-accent text-white/30 tracking-wide">Other</span>
+                  <span className="text-[9px] text-white/20">{sorted.length}</span>
+                  <div className="flex-1 border-t border-white/[0.04]" />
+                </div>
+              )
+              for (const entry of sorted) {
                 const entryGid = groupMap.get(entry.id)!
                 const isConcurrent = (gidToSize.get(entryGid) || 1) > 1
                 const showHeader = isConcurrent && entryGid !== lastGid
                 lastGid = entryGid
                 const ts = new Date(entry.startedAt)
 
-                return (
+                rows.push(
                   <div key={entry.id}>
                     {showHeader && (
                       <div className="flex items-center gap-2 pt-2 pb-0.5 px-1">
@@ -382,9 +477,6 @@ export default function HistoryView() {
                           )}
                           {entry.status === 'crashed' && (
                             <span className="text-[9px] text-accent-amber">crashed</span>
-                          )}
-                          {entry.status === 'parked' && (
-                            <span className="text-[9px] text-accent-amber">parked</span>
                           )}
                           {entry.status === 'killed' && (
                             <span className="text-[9px] text-accent-red">killed</span>
@@ -451,7 +543,8 @@ export default function HistoryView() {
                     </div>
                   </div>
                 )
-              })
+              }
+              return rows
             })()}
           </div>
         )
