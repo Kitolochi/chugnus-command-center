@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Button, Badge } from '../ui'
-import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause, AlertTriangle } from 'lucide-react'
+import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause, AlertTriangle, Square } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
@@ -305,8 +305,24 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           </div>
         )}
 
+        {/* Stale warning banner */}
+        {isStale && (
+          <div className="flex items-center justify-between mb-2 px-3 py-2 rounded-lg bg-accent-amber/5 border border-accent-amber/15">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={10} className="text-accent-amber flex-shrink-0" />
+              <span className="text-[10px] text-accent-amber/80">No output for {idleMinutes}m — may be stuck</span>
+            </div>
+            <button
+              onClick={() => park(item.processId)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent-amber/15 text-accent-amber text-[10px] font-accent hover:bg-accent-amber/25 transition-all"
+            >
+              <Square size={8} /> Stop
+            </button>
+          </div>
+        )}
+
         {/* Pending input indicator */}
-        {item.pendingInput && item.status === 'working' && (
+        {item.pendingInput && item.status === 'working' && !isStale && (
           <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-blue/5 border border-accent-blue/10">
             <Loader2 size={10} className="text-accent-blue animate-spin flex-shrink-0" />
             <span className="text-[10px] text-accent-blue/70">Queued — will run after current turn:</span>
@@ -373,7 +389,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
             {confirmKill ? 'Confirm kill?' : 'Kill'}
           </button>
           <div className="flex items-center gap-2">
-            {item.status === 'awaiting_input' && (
+            {(item.status === 'awaiting_input' || item.status === 'working') && (
               <Button variant="ghost" size="xs" onClick={() => park(item.processId)}>
                 <Pause size={10} /> Park
               </Button>

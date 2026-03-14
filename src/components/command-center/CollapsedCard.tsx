@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Badge } from '../ui'
-import { Loader2, Send, MessageSquare, AlertTriangle } from 'lucide-react'
+import { Loader2, Send, MessageSquare, AlertTriangle, Square } from 'lucide-react'
 
 export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; onFocus?: () => void }) {
-  const { respond } = useCommandCenterStore()
+  const { respond, park } = useCommandCenterStore()
   const [showInput, setShowInput] = useState(false)
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -59,7 +59,18 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
           )}
           {item.pendingInput && <span className="text-[9px] text-accent-blue">queued</span>}
           {item.status === 'working' && !isStale && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
-          {isStale && <AlertTriangle size={10} className="text-accent-amber" />}
+          {isStale && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); park(item.processId) }}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-accent-amber/15 text-accent-amber text-[9px] hover:bg-accent-amber/25 transition-all"
+                title="Stop this task"
+              >
+                <Square size={7} /> Stop
+              </button>
+              <AlertTriangle size={10} className="text-accent-amber" />
+            </>
+          )}
           <span className={`text-[9px] ${
             item.status === 'awaiting_input' ? 'text-accent-amber' :
             item.status === 'errored' ? 'text-accent-red' :
