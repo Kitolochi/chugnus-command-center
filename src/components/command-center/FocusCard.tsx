@@ -104,8 +104,11 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     setConfirmKill(false)
   }
 
+  const [fileError, setFileError] = useState<string | null>(null)
+
   const processDroppedFiles = async (files: FileList) => {
     setLoadingFiles(true)
+    setFileError(null)
     const newAttachments: FileAttachment[] = []
 
     for (let i = 0; i < files.length; i++) {
@@ -113,11 +116,17 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
       const filePath = (file as any).path as string
       if (!filePath) continue
 
+      // Reject files over 5MB before even reading
+      if (file.size > 5 * 1024 * 1024) {
+        setFileError(`${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 5MB per file.`)
+        continue
+      }
+
       try {
         const att = await window.electronAPI.codexReadFileForChat({ filePath })
         newAttachments.push(att)
       } catch (err: any) {
-        console.error(`Failed to read ${filePath}:`, err)
+        setFileError(`Failed to read ${file.name}: ${err.message}`)
       }
     }
 
@@ -219,7 +228,20 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const shownText = truncated ? displayText.slice(0, 500) : displayText
   const [showFullText, setShowFullText] = useState(false)
 
-  const canSend = response.trim() || attachments.length > 0
+  // Estimate total message size (text content + base64 images)
+  const estimatedSizeBytes = (() => {
+    let total = response.length
+    for (const att of attachments) {
+      if (att.type === 'text' && att.textContent) total += att.textContent.length
+      else if (att.base64) total += att.base64.length * 0.75 // base64 → bytes
+      else total += att.sizeKb * 1024
+    }
+    return total
+  })()
+  const MAX_MESSAGE_BYTES = 5 * 1024 * 1024 // 5MB — well under Claude's 20MB limit
+  const isOversized = estimatedSizeBytes > MAX_MESSAGE_BYTES
+
+  const canSend = (response.trim() || attachments.length > 0) && !isOversized
 
   return (
     <div className="relative">
@@ -362,6 +384,22 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               <div className="flex items-center gap-2 mb-2 text-[10px] text-white/40">
                 <Loader2 size={10} className="animate-spin" />
                 Reading files...
+              </div>
+            )}
+
+            {fileError && (
+              <div className="flex items-center gap-2 mb-2 text-[10px] text-accent-red/80">
+                <AlertTriangle size={10} className="flex-shrink-0" />
+                {fileError}
+              </div>
+            )}
+
+            {isOversized && (
+              <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-red/5 border border-accent-red/15">
+                <AlertTriangle size={10} className="text-accent-red flex-shrink-0" />
+                <span className="text-[10px] text-accent-red/80">
+                  Message too large ({(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB) — remove files or use smaller ones (max 5MB)
+                </span>
               </div>
             )}
 

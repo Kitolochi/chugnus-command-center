@@ -40,17 +40,18 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
 
   return (
     <div className={`bg-surface-1 border border-white/[0.04] rounded-lg ${opacity} hover:opacity-100 transition-opacity`}>
-      <div className="px-4 py-2.5 flex items-center justify-between cursor-pointer" onClick={onFocus}>
+      <div className="px-4 py-2.5 cursor-pointer" onClick={onFocus}>
+        <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Badge>{item.projectName}</Badge>
           <span className="text-[10px] text-white/40 truncate max-w-[200px]">
-            {item.resultText?.slice(0, 60) || item.prompt.slice(0, 60)}
+            {item.prompt.slice(0, 60)}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {item.status !== 'errored' && (
             <button
-              onClick={() => setShowInput(!showInput)}
+              onClick={(e) => { e.stopPropagation(); setShowInput(!showInput) }}
               className="p-1 rounded text-white/20 hover:text-accent-blue hover:bg-white/[0.04] transition-colors"
               title="Send input"
             >
@@ -77,6 +78,12 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
             isStale ? 'text-accent-amber' : 'text-accent-emerald'
           }`}>{statusText}</span>
         </div>
+        </div>
+        {(item.status === 'awaiting_input' || item.status === 'errored') && item.resultText && (
+          <p className="text-[10px] text-white/50 mt-1.5 line-clamp-2 leading-relaxed">
+            {item.resultText.slice(0, 200)}
+          </p>
+        )}
       </div>
       {showInput && (
         <div className="px-4 pb-2.5 flex gap-2 items-center">
