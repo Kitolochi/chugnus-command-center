@@ -183,7 +183,8 @@ export function launchProcess(opts: {
 3. Avoid re-reading files you already have in context. Use your memory of the file instead.
 4. When editing, use the Edit tool with targeted old_string/new_string — do NOT read the entire file first if you only need to change a small section.
 5. For Remotion/animation projects: split into scene files (one per scene), a shared config (colors, timing, fonts), a utils file (reusable animation helpers), and Root.tsx as the thin orchestrator. Each scene should be self-contained and independently editable.
-6. For any project generating large output (animations, data, SVG): extract data (keyframes, paths, coordinates) into separate .ts data files and import them. Never inline large data arrays in component files.`,
+6. For any project generating large output (animations, data, SVG): extract data (keyframes, paths, coordinates) into separate .ts data files and import them. Never inline large data arrays in component files.
+7. IMAGE RULES: Never read image files larger than 1MB. When multiple images exist in the conversation, each must be under 2000x2000 pixels. If you need to take screenshots or read images, resize them first using a Bash command (e.g. magick convert input.png -resize 1920x1920\\> output.png). Do not accumulate many images across turns — describe what you see instead of keeping images in context.`,
   ]
   if (opts.resumeSessionId) {
     args.push('--resume', opts.resumeSessionId)
