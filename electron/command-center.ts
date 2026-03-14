@@ -25,6 +25,7 @@ export interface CCQueueItem {
   turnCount: number
   startedAt: number
   updatedAt: number
+  lastActivityAt: number
 }
 
 export interface CCStreamMessage {
@@ -185,6 +186,7 @@ export function launchProcess(opts: {
     turnCount: 0,
     startedAt: Date.now(),
     updatedAt: Date.now(),
+    lastActivityAt: Date.now(),
   }
 
   const managed: ManagedProcess = { proc, item, buffer: '' }
@@ -280,6 +282,7 @@ function handleMessage(processId: string, msg: any) {
 
   const { item } = m
   const timestamp = Date.now()
+  item.lastActivityAt = timestamp
 
   if (msg.type === 'assistant' && msg.message?.content) {
     for (const block of msg.message.content) {

@@ -18,6 +18,7 @@ export interface CCQueueItem {
   turnCount: number
   startedAt: number
   updatedAt: number
+  lastActivityAt: number
 }
 
 export interface CCStreamMessage {

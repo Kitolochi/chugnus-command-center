@@ -1,13 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Badge } from '../ui'
-import { Loader2, Send, MessageSquare } from 'lucide-react'
+import { Loader2, Send, MessageSquare, AlertTriangle } from 'lucide-react'
 
 export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; onFocus?: () => void }) {
   const { respond } = useCommandCenterStore()
   const [showInput, setShowInput] = useState(false)
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Re-render every 30s for elapsed timers
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (showInput) inputRef.current?.focus()
@@ -20,13 +27,16 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
     setShowInput(false)
   }
 
+  const idleMinutes = Math.floor((Date.now() - item.lastActivityAt) / 60000)
+  const isStale = item.status === 'working' && idleMinutes >= 5
+
   const statusText = {
-    working: 'Working...',
+    working: isStale ? `Idle ${idleMinutes}m` : 'Working...',
     awaiting_input: 'Awaiting input',
     errored: 'Error',
   }[item.status]
 
-  const opacity = item.status === 'working' && !showInput ? 'opacity-50' : ''
+  const opacity = item.status === 'working' && !showInput && !isStale ? 'opacity-50' : ''
 
   return (
     <div className={`bg-surface-1 border border-white/[0.04] rounded-lg ${opacity} hover:opacity-100 transition-opacity`}>
@@ -48,11 +58,12 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
             </button>
           )}
           {item.pendingInput && <span className="text-[9px] text-accent-blue">queued</span>}
-          {item.status === 'working' && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
+          {item.status === 'working' && !isStale && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
+          {isStale && <AlertTriangle size={10} className="text-accent-amber" />}
           <span className={`text-[9px] ${
             item.status === 'awaiting_input' ? 'text-accent-amber' :
             item.status === 'errored' ? 'text-accent-red' :
-            'text-accent-emerald'
+            isStale ? 'text-accent-amber' : 'text-accent-emerald'
           }`}>{statusText}</span>
         </div>
       </div>

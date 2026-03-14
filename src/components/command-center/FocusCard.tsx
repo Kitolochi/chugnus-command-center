@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Button, Badge } from '../ui'
-import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause } from 'lucide-react'
+import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause, AlertTriangle } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
@@ -188,14 +188,24 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     setAttachments(prev => prev.filter((_, i) => i !== index))
   }
 
+  // Re-render every 30s to keep elapsed timers fresh
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  const idleMinutes = Math.floor((Date.now() - item.lastActivityAt) / 60000)
+  const isStale = item.status === 'working' && idleMinutes >= 5
+
   const statusColor = {
-    working: 'text-accent-emerald',
+    working: isStale ? 'text-accent-amber' : 'text-accent-emerald',
     awaiting_input: 'text-accent-amber',
     errored: 'text-accent-red',
   }[item.status]
 
   const statusLabel = {
-    working: 'Working...',
+    working: isStale ? `No output ${idleMinutes}m` : 'Working...',
     awaiting_input: 'Awaiting input',
     errored: 'Error',
   }[item.status]
@@ -230,7 +240,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               {item.projectName}
             </Badge>
             <span className={`text-[10px] ${statusColor}`}>{statusLabel}</span>
-            {item.status === 'working' && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
+            {item.status === 'working' && !isStale && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
+            {isStale && <AlertTriangle size={10} className="text-accent-amber" />}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[9px] text-white/30">${item.costUsd.toFixed(2)}</span>
