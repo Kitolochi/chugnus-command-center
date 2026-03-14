@@ -176,6 +176,8 @@ export function launchProcess(opts: {
     '--verbose',
     '--dangerously-skip-permissions',
     '--disallowed-tools', 'EnterPlanMode,ExitPlanMode',
+    '--append-system-prompt',
+    'IMPORTANT: Before reading any file, check its size first (e.g. `ls -lh` or `wc -c`). If a file is over 500KB, do NOT read it whole — use offset/limit params on the Read tool, or use head/tail via Bash. Never read minified, bundled, or binary files. If you hit a "Request too large" error, resume by reading smaller chunks.',
   ]
   if (opts.resumeSessionId) {
     args.push('--resume', opts.resumeSessionId)
