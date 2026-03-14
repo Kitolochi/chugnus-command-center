@@ -3298,7 +3298,7 @@ export function cleanupStaleCCHistory(): number {
     if (entry.status === 'running') {
       entry.status = 'crashed'
       entry.summary = entry.summary === 'Running...' ? 'Lost (app closed)' : entry.summary
-      entry.completedAt = entry.startedAt
+      entry.completedAt = Date.now()
       cleaned++
     }
   }
