@@ -46,6 +46,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
   const [dragging, setDragging] = useState(false)
   const [loadingFiles, setLoadingFiles] = useState(false)
+  const [logEntries, setLogEntries] = useState<any[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dragCountRef = useRef(0)
   const prevProcessId = useRef(item.processId)
@@ -57,6 +58,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
       setAttachments([])
       setShowFiles(false)
       setShowLog(false)
+      setLogEntries([])
       setConfirmKill(false)
       prevProcessId.current = item.processId
     }
@@ -302,12 +304,16 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               Files changed ({item.filesChanged.length})
             </button>
           )}
-          {item.fullLog.length > 0 && (
-            <button onClick={() => setShowLog(!showLog)} className="text-white/40 hover:text-white/60 flex items-center gap-1">
-              <ChevronRight size={10} className={`transition-transform ${showLog ? 'rotate-90' : ''}`} />
-              Full log ({item.fullLog.length})
-            </button>
-          )}
+          <button onClick={async () => {
+            if (!showLog) {
+              const log = await window.electronAPI.ccGetLog({ processId: item.processId })
+              setLogEntries(log)
+            }
+            setShowLog(!showLog)
+          }} className="text-white/40 hover:text-white/60 flex items-center gap-1">
+            <ChevronRight size={10} className={`transition-transform ${showLog ? 'rotate-90' : ''}`} />
+            Full log
+          </button>
         </div>
 
         {/* Expanded: Files */}
@@ -321,10 +327,12 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           </div>
         )}
 
-        {/* Expanded: Log */}
+        {/* Expanded: Log (fetched on demand) */}
         {showLog && (
           <div className="bg-surface-0 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto space-y-2">
-            {item.fullLog.map((msg, i) => (
+            {logEntries.length === 0 ? (
+              <p className="text-[10px] text-white/30">No log entries.</p>
+            ) : logEntries.map((msg, i) => (
               <div key={i} className={`text-[10px] ${
                 msg.type === 'assistant' ? 'text-white/70' :
                 msg.type === 'tool_use' ? 'text-accent-cyan/70 font-mono' :

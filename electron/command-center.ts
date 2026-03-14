@@ -47,6 +47,8 @@ interface ManagedProcess {
 
 const ACCENT_COLORS = ['blue', 'purple', 'red', 'cyan', 'green', 'orange', 'amber', 'pink']
 const MAX_PROCESSES = 10
+const MAX_LOG_ENTRIES = 200
+const MAX_RESULT_TEXT = 2000
 
 // --- State ---
 
@@ -64,8 +66,9 @@ function hashColor(str: string): string {
   return ACCENT_COLORS[Math.abs(hash) % ACCENT_COLORS.length]
 }
 
+/** Send lightweight queue (no fullLog) to renderer to keep IPC small */
 function notifyRenderer() {
-  mainWindow?.webContents.send('cc:queue-update', getQueue())
+  mainWindow?.webContents.send('cc:queue-update', getLightQueue())
 }
 
 // --- Public API ---
@@ -74,8 +77,23 @@ export function initCommandCenter(win: BrowserWindow) {
   mainWindow = win
 }
 
+/** Lightweight queue for IPC — strips fullLog to keep payloads small */
+function getLightQueue(): CCQueueItem[] {
+  return Array.from(processes.values()).map(m => ({
+    ...m.item,
+    fullLog: [], // sent on demand via cc:get-log
+  }))
+}
+
+/** Full queue including logs — used for explicit requests */
 export function getQueue(): CCQueueItem[] {
   return Array.from(processes.values()).map(m => ({ ...m.item }))
+}
+
+/** Get fullLog for a single process */
+export function getProcessLog(processId: string): CCStreamMessage[] {
+  const m = processes.get(processId)
+  return m ? [...m.item.fullLog] : []
 }
 
 export function getProcessCount(): number {
@@ -288,8 +306,8 @@ function handleMessage(processId: string, msg: any) {
   if (msg.type === 'assistant' && msg.message?.content) {
     for (const block of msg.message.content) {
       if (block.type === 'text') {
-        item.fullLog.push({ type: 'assistant', text: block.text, timestamp })
-        item.resultText = block.text // latest text
+        item.fullLog.push({ type: 'assistant', text: block.text?.slice(0, 500), timestamp })
+        item.resultText = block.text?.slice(0, MAX_RESULT_TEXT)
       } else if (block.type === 'tool_use') {
         item.fullLog.push({
           type: 'tool_use',
@@ -304,12 +322,16 @@ function handleMessage(processId: string, msg: any) {
         }
       }
     }
+    // Cap log size to prevent IPC bloat
+    if (item.fullLog.length > MAX_LOG_ENTRIES) {
+      item.fullLog = item.fullLog.slice(-MAX_LOG_ENTRIES)
+    }
     item.updatedAt = timestamp
     notifyRenderer()
   } else if (msg.type === 'result') {
     item.turnCount++
     if (msg.total_cost_usd != null) item.costUsd = msg.total_cost_usd
-    if (msg.result) item.resultText = msg.result
+    if (msg.result) item.resultText = typeof msg.result === 'string' ? msg.result.slice(0, MAX_RESULT_TEXT) : msg.result
 
     if (msg.subtype === 'error' || msg.is_error) {
       item.status = 'errored'

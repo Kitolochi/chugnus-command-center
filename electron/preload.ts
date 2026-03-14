@@ -168,6 +168,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ccKill: (opts: { processId: string }) =>
     ipcRenderer.invoke('cc:kill', opts),
   ccGetQueue: () => ipcRenderer.invoke('cc:get-queue'),
+  ccGetLog: (opts: { processId: string }) => ipcRenderer.invoke('cc:get-log', opts),
   ccGetHistory: (opts?: { filter?: string; limit?: number }) =>
     ipcRenderer.invoke('cc:get-history', opts),
   ccGetCrashedIds: () => ipcRenderer.invoke('cc:get-crashed-ids') as Promise<string[]>,

@@ -10,6 +10,7 @@ import {
   dismissProcess,
   killProcess,
   getQueue,
+  getProcessLog,
 } from '../command-center'
 import {
   getCCHistory,
@@ -109,6 +110,10 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('cc:get-queue', () => {
     return getQueue()
+  })
+
+  ipcMain.handle('cc:get-log', (_, opts: { processId: string }) => {
+    return getProcessLog(opts.processId)
   })
 
   ipcMain.handle('cc:get-history', (_, opts?: { filter?: string; limit?: number; offset?: number }) => {

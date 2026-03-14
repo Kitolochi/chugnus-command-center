@@ -684,6 +684,7 @@ export interface ElectronAPI {
   ccPark: (opts: { processId: string }) => Promise<any>
   ccKill: (opts: { processId: string }) => Promise<void>
   ccGetQueue: () => Promise<any[]>
+  ccGetLog: (opts: { processId: string }) => Promise<any[]>
   ccGetHistory: (opts?: { filter?: string; limit?: number }) => Promise<any[]>
   ccGetCrashedIds: () => Promise<string[]>
   ccGetProjects: () => Promise<any[]>
