@@ -177,7 +177,13 @@ export function launchProcess(opts: {
     '--dangerously-skip-permissions',
     '--disallowed-tools', 'EnterPlanMode,ExitPlanMode',
     '--append-system-prompt',
-    'IMPORTANT FILE SIZE RULES: Before reading any file, check its size first (e.g. `ls -lh` or `wc -c`). If a file is over 500KB, do NOT read it whole — use offset/limit params on the Read tool, or use head/tail via Bash. Never read minified, bundled, or binary files. If you hit a "Request too large" error, resume by reading smaller chunks. IMPORTANT STRUCTURE RULES: Keep individual source files under 300 lines. When building animations, components, or any complex feature, split into separate files — e.g. separate files for config/constants, utility functions, individual scenes or sections, and the main orchestrator. This prevents context overflow and makes iterating easier.',
+    `CONTEXT SIZE RULES — FOLLOW STRICTLY:
+1. Before reading ANY file, check size with ls -lh. If over 200KB, use offset/limit to read only the section you need. Never read minified, bundled, or binary files.
+2. Keep source files under 300 lines. If a file grows past that, refactor into smaller modules immediately.
+3. Avoid re-reading files you already have in context. Use your memory of the file instead.
+4. When editing, use the Edit tool with targeted old_string/new_string — do NOT read the entire file first if you only need to change a small section.
+5. For Remotion/animation projects: split into scene files (one per scene), a shared config (colors, timing, fonts), a utils file (reusable animation helpers), and Root.tsx as the thin orchestrator. Each scene should be self-contained and independently editable.
+6. For any project generating large output (animations, data, SVG): extract data (keyframes, paths, coordinates) into separate .ts data files and import them. Never inline large data arrays in component files.`,
   ]
   if (opts.resumeSessionId) {
     args.push('--resume', opts.resumeSessionId)
