@@ -177,7 +177,7 @@ export function launchProcess(opts: {
     '--dangerously-skip-permissions',
     '--disallowed-tools', 'EnterPlanMode,ExitPlanMode',
     '--append-system-prompt',
-    'IMPORTANT: Before reading any file, check its size first (e.g. `ls -lh` or `wc -c`). If a file is over 500KB, do NOT read it whole — use offset/limit params on the Read tool, or use head/tail via Bash. Never read minified, bundled, or binary files. If you hit a "Request too large" error, resume by reading smaller chunks.',
+    'IMPORTANT FILE SIZE RULES: Before reading any file, check its size first (e.g. `ls -lh` or `wc -c`). If a file is over 500KB, do NOT read it whole — use offset/limit params on the Read tool, or use head/tail via Bash. Never read minified, bundled, or binary files. If you hit a "Request too large" error, resume by reading smaller chunks. IMPORTANT STRUCTURE RULES: Keep individual source files under 300 lines. When building animations, components, or any complex feature, split into separate files — e.g. separate files for config/constants, utility functions, individual scenes or sections, and the main orchestrator. This prevents context overflow and makes iterating easier.',
   ]
   if (opts.resumeSessionId) {
     args.push('--resume', opts.resumeSessionId)
