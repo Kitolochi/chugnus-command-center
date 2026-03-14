@@ -28,8 +28,17 @@ export default function CommandCenter() {
     return unsub
   }, [])
 
-  const recentCutoff = Date.now() - 10 * 60 * 1000 // last 10 minutes only
-  const crashedSessions = restoreDismissed ? [] : history.filter(e => e.status === 'crashed' && e.sessionId && (e.completedAt || e.startedAt) > recentCutoff)
+  // Show crashed sessions from the last 10 minutes, deduplicated by sessionId (keep most recent)
+  const recentCutoff = Date.now() - 10 * 60 * 1000
+  const crashedSessions = restoreDismissed ? [] : (() => {
+    const recent = history.filter(e => e.status === 'crashed' && e.sessionId && (e.completedAt || e.startedAt) > recentCutoff)
+    const seen = new Set<string>()
+    return recent.filter(e => {
+      if (seen.has(e.sessionId!)) return false
+      seen.add(e.sessionId!)
+      return true
+    })
+  })()
 
   const handleRestoreAll = async () => {
     for (const entry of crashedSessions) {

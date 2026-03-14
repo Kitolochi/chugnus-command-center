@@ -3302,6 +3302,30 @@ export function cleanupStaleCCHistory(): number {
       cleaned++
     }
   }
+
+  // Deduplicate crashed entries — keep only the most recent per sessionId
+  const crashedBySession = new Map<string, typeof db.commandCenterHistory[0]>()
+  const toRemove: string[] = []
+  for (const entry of db.commandCenterHistory) {
+    if (entry.status !== 'crashed' || !entry.sessionId) continue
+    const existing = crashedBySession.get(entry.sessionId)
+    if (existing) {
+      // Keep the newer one, mark the older for removal
+      if (entry.completedAt > existing.completedAt) {
+        toRemove.push(existing.id)
+        crashedBySession.set(entry.sessionId, entry)
+      } else {
+        toRemove.push(entry.id)
+      }
+    } else {
+      crashedBySession.set(entry.sessionId, entry)
+    }
+  }
+  if (toRemove.length > 0) {
+    db.commandCenterHistory = db.commandCenterHistory.filter(e => !toRemove.includes(e.id))
+    cleaned += toRemove.length
+  }
+
   if (cleaned > 0) saveDatabase()
   return cleaned
 }
