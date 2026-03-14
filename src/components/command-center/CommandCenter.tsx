@@ -28,7 +28,8 @@ export default function CommandCenter() {
     return unsub
   }, [])
 
-  const crashedSessions = restoreDismissed ? [] : history.filter(e => e.status === 'crashed' && e.sessionId)
+  const recentCutoff = Date.now() - 60 * 60 * 1000 // last hour only
+  const crashedSessions = restoreDismissed ? [] : history.filter(e => e.status === 'crashed' && e.sessionId && e.startedAt > recentCutoff)
 
   const handleRestoreAll = async () => {
     for (const entry of crashedSessions) {
