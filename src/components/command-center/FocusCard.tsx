@@ -48,10 +48,23 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const [loadingFiles, setLoadingFiles] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dragCountRef = useRef(0)
+  const prevProcessId = useRef(item.processId)
+
+  // Reset draft when the focused item changes to a different process
+  useEffect(() => {
+    if (item.processId !== prevProcessId.current) {
+      setResponse('')
+      setAttachments([])
+      setShowFiles(false)
+      setShowLog(false)
+      setConfirmKill(false)
+      prevProcessId.current = item.processId
+    }
+  }, [item.processId])
 
   useEffect(() => {
     if (item.status === 'awaiting_input') inputRef.current?.focus()
-  }, [item.status])
+  }, [item.status, item.processId])
 
   const handleLinkClick = useCallback((e: React.MouseEvent) => {
     const link = (e.target as HTMLElement).closest('a[data-external-link]') as HTMLAnchorElement | null
@@ -403,6 +416,10 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               </div>
             )}
 
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[9px] text-white/25">Replying to</span>
+              <span className="text-[9px] text-white/50 font-accent">{item.projectName}</span>
+            </div>
             <div className="flex gap-2 items-end">
               <textarea
                 ref={inputRef}
