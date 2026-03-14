@@ -16,6 +16,7 @@ import {
   addCCHistoryEntry,
   updateCCHistoryEntry,
   cleanupStaleCCHistory,
+  getLastCrashedIds,
   getKnownProjects,
   upsertKnownProject,
   discoverProjects,
@@ -112,6 +113,10 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('cc:get-history', (_, opts?: { filter?: string; limit?: number; offset?: number }) => {
     return getCCHistory(opts?.filter, opts?.limit)
+  })
+
+  ipcMain.handle('cc:get-crashed-ids', () => {
+    return getLastCrashedIds()
   })
 
   ipcMain.handle('cc:get-projects', () => {

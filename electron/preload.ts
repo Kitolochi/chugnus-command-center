@@ -170,6 +170,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ccGetQueue: () => ipcRenderer.invoke('cc:get-queue'),
   ccGetHistory: (opts?: { filter?: string; limit?: number }) =>
     ipcRenderer.invoke('cc:get-history', opts),
+  ccGetCrashedIds: () => ipcRenderer.invoke('cc:get-crashed-ids') as Promise<string[]>,
   ccGetProjects: () => ipcRenderer.invoke('cc:get-projects'),
   ccGetProjectDescription: (opts: { projectPath: string }) => ipcRenderer.invoke('cc:get-project-description', opts),
   ccBrowseProject: () => ipcRenderer.invoke('cc:browse-project'),

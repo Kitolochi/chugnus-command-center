@@ -685,6 +685,7 @@ export interface ElectronAPI {
   ccKill: (opts: { processId: string }) => Promise<void>
   ccGetQueue: () => Promise<any[]>
   ccGetHistory: (opts?: { filter?: string; limit?: number }) => Promise<any[]>
+  ccGetCrashedIds: () => Promise<string[]>
   ccGetProjects: () => Promise<any[]>
   ccGetProjectDescription: (opts: { projectPath: string }) => Promise<string>
   ccBrowseProject: () => Promise<{ path: string; name: string } | null>

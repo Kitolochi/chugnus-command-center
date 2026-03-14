@@ -17,28 +17,21 @@ export default function CommandCenter() {
   } = useCommandCenterStore()
 
   const [restoreDismissed, setRestoreDismissed] = useState(false)
+  const [crashedIds, setCrashedIds] = useState<string[]>([])
 
   useEffect(() => {
     loadQueue()
     loadProjects()
     loadHistory()
+    window.electronAPI.ccGetCrashedIds().then(setCrashedIds)
     const unsub = window.electronAPI.onCCQueueUpdate((q) => {
       useCommandCenterStore.getState().updateQueue(q)
     })
     return unsub
   }, [])
 
-  // Show crashed sessions from the last 10 minutes, deduplicated by sessionId (keep most recent)
-  const recentCutoff = Date.now() - 10 * 60 * 1000
-  const crashedSessions = restoreDismissed ? [] : (() => {
-    const recent = history.filter(e => e.status === 'crashed' && e.sessionId && (e.completedAt || e.startedAt) > recentCutoff)
-    const seen = new Set<string>()
-    return recent.filter(e => {
-      if (seen.has(e.sessionId!)) return false
-      seen.add(e.sessionId!)
-      return true
-    })
-  })()
+  // Only show sessions that were marked crashed during THIS startup
+  const crashedSessions = restoreDismissed ? [] : history.filter(e => crashedIds.includes(e.id))
 
   const handleRestoreAll = async () => {
     for (const entry of crashedSessions) {

@@ -455,6 +455,7 @@ export function installElectronMock() {
     ccKill: noop as any,
     ccGetQueue: emptyArray as any,
     ccGetHistory: emptyArray as any,
+    ccGetCrashedIds: emptyArray as any,
     ccGetProjects: emptyArray as any,
     ccGetProjectDescription: async () => '',
     ccBrowseProject: async () => null,

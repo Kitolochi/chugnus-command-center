@@ -3292,13 +3292,21 @@ export function getCCHistory(filter?: string, limit = 100): CCHistoryEntry[] {
   return entries.sort((a, b) => (b.completedAt || b.startedAt) - (a.completedAt || a.startedAt)).slice(0, limit)
 }
 
+let lastCrashedIds: string[] = []
+
+export function getLastCrashedIds(): string[] {
+  return lastCrashedIds
+}
+
 export function cleanupStaleCCHistory(): number {
   let cleaned = 0
+  lastCrashedIds = []
   for (const entry of db.commandCenterHistory) {
     if (entry.status === 'running') {
       entry.status = 'crashed'
       entry.summary = entry.summary === 'Running...' ? 'Lost (app closed)' : entry.summary
       entry.completedAt = Date.now()
+      lastCrashedIds.push(entry.id)
       cleaned++
     }
   }
