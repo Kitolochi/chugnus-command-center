@@ -457,6 +457,7 @@ export function installElectronMock() {
     ccGetLog: emptyArray as any,
     ccGetHistory: emptyArray as any,
     ccGetCrashedIds: emptyArray as any,
+    ccGetDailyPrompts: (() => Promise.resolve({ date: '', count: 0 })) as any,
     ccGetProjects: emptyArray as any,
     ccGetProjectDescription: async () => '',
     ccBrowseProject: async () => null,

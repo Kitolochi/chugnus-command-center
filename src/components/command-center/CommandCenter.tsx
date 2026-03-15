@@ -18,14 +18,21 @@ export default function CommandCenter() {
 
   const [restoreDismissed, setRestoreDismissed] = useState(false)
   const [crashedIds, setCrashedIds] = useState<string[]>([])
+  const [dailyPrompts, setDailyPrompts] = useState(0)
+
+  const refreshDailyPrompts = () => {
+    window.electronAPI.ccGetDailyPrompts().then(d => setDailyPrompts(d.count))
+  }
 
   useEffect(() => {
     loadQueue()
     loadProjects()
     loadHistory()
+    refreshDailyPrompts()
     window.electronAPI.ccGetCrashedIds().then(setCrashedIds)
     const unsub = window.electronAPI.onCCQueueUpdate((q) => {
       useCommandCenterStore.getState().updateQueue(q)
+      refreshDailyPrompts()
     })
     return unsub
   }, [])
@@ -89,6 +96,9 @@ export default function CommandCenter() {
             {errorCount > 0 && (
               <span className="text-accent-red">{errorCount} errored</span>
             )}
+          </div>
+          <div className="bg-surface-2 rounded-full px-2.5 py-0.5">
+            <span className="text-[10px] text-white/40 font-mono">{dailyPrompts} today</span>
           </div>
         </div>
         <div className="flex items-center gap-2">

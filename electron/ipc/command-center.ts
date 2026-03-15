@@ -21,6 +21,7 @@ import {
   getKnownProjects,
   upsertKnownProject,
   discoverProjects,
+  getDailyPrompts,
 } from '../database'
 import { getProjectDescription } from '../cli-logs'
 
@@ -122,6 +123,10 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('cc:get-crashed-ids', () => {
     return getLastCrashedIds()
+  })
+
+  ipcMain.handle('cc:get-daily-prompts', () => {
+    return getDailyPrompts()
   })
 
   ipcMain.handle('cc:get-projects', () => {

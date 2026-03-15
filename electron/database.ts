@@ -650,6 +650,8 @@ interface Database {
   knownProjects: KnownProject[]
   // Dual-Agent Collab
   collabHistory: CollabHistoryEntry[]
+  // Daily prompt counter
+  dailyPrompts: { date: string; count: number }
 }
 
 let db: Database
@@ -1140,6 +1142,12 @@ export function initDatabase(): Database {
   // Initialize collabHistory if missing
   if (!Array.isArray((db as any).collabHistory)) {
     db.collabHistory = []
+    saveDatabase()
+  }
+
+  // Initialize daily prompt counter if missing
+  if (!(db as any).dailyPrompts) {
+    db.dailyPrompts = { date: todayLocal(), count: 0 }
     saveDatabase()
   }
 
@@ -3452,4 +3460,28 @@ export function getCollabHistory(limit = 50): CollabHistoryEntry[] {
 
 export function getCollabHistoryEntry(id: string): CollabHistoryEntry | undefined {
   return db.collabHistory.find(e => e.id === id)
+}
+
+// Daily Prompt Counter
+function todayLocal(): string {
+  return new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local timezone
+}
+
+export function incrementDailyPrompts(): number {
+  const today = todayLocal()
+  if (db.dailyPrompts.date !== today) {
+    db.dailyPrompts = { date: today, count: 0 }
+  }
+  db.dailyPrompts.count++
+  saveDatabase()
+  return db.dailyPrompts.count
+}
+
+export function getDailyPrompts(): { date: string; count: number } {
+  const today = todayLocal()
+  if (db.dailyPrompts.date !== today) {
+    db.dailyPrompts = { date: today, count: 0 }
+    saveDatabase()
+  }
+  return { ...db.dailyPrompts }
 }

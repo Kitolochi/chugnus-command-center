@@ -4,7 +4,7 @@ import path from 'path'
 import os from 'os'
 import fs from 'fs'
 import { BrowserWindow } from 'electron'
-import { updateCCHistoryEntry } from './database'
+import { updateCCHistoryEntry, incrementDailyPrompts } from './database'
 
 // --- Types ---
 
@@ -300,6 +300,7 @@ export function launchProcess(opts: {
     notifyRenderer()
   })
 
+  incrementDailyPrompts()
   notifyRenderer()
   return item
 }
@@ -380,6 +381,7 @@ export function respondToProcess(processId: string, response: string) {
     message: { role: 'user', content: response }
   }) + '\n'
 
+  incrementDailyPrompts()
   m.item.fullLog.push({ type: 'user', text: response, timestamp: Date.now() })
   if (m.item.status === 'working') {
     // Already mid-turn — input is buffered in stdin, will be read next turn

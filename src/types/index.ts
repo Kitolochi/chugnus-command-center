@@ -687,6 +687,7 @@ export interface ElectronAPI {
   ccGetLog: (opts: { processId: string }) => Promise<any[]>
   ccGetHistory: (opts?: { filter?: string; limit?: number }) => Promise<any[]>
   ccGetCrashedIds: () => Promise<string[]>
+  ccGetDailyPrompts: () => Promise<{ date: string; count: number }>
   ccGetProjects: () => Promise<any[]>
   ccGetProjectDescription: (opts: { projectPath: string }) => Promise<string>
   ccBrowseProject: () => Promise<{ path: string; name: string } | null>
