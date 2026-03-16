@@ -12,6 +12,7 @@ import {
   getQueue,
   getProcessLog,
 } from '../command-center'
+import { callLLM } from '../llm'
 import {
   getCCHistory,
   addCCHistoryEntry,
@@ -158,5 +159,18 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
     const projectPath = result.filePaths[0]
     upsertKnownProject(projectPath)
     return { path: projectPath, name: path.basename(projectPath) }
+  })
+
+  ipcMain.handle('cc:summarize-for-voice', async (_, text: string) => {
+    try {
+      return await callLLM({
+        tier: 'fast',
+        maxTokens: 150,
+        system: 'Summarize this AI assistant message into 1-2 short sentences. Focus on what decision or input the user needs to provide. Conversational, no markdown.',
+        prompt: text,
+      })
+    } catch {
+      return text.slice(0, 200)
+    }
   })
 }

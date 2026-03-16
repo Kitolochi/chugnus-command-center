@@ -696,6 +696,7 @@ export interface ElectronAPI {
   ccGetProjectDescription: (opts: { projectPath: string }) => Promise<string>
   ccBrowseProject: () => Promise<{ path: string; name: string } | null>
   ccCreateProject: (opts: { name: string }) => Promise<{ path: string; name: string } | null>
+  ccSummarizeForVoice: (text: string) => Promise<string>
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
 
   // Codex Chat (GPT 5.4)

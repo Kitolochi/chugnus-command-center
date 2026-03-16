@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Mic, MicOff, Volume2, Loader2, Download } from 'lucide-react'
 import { useVoiceStore } from '../../store/voiceStore'
+import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { startRecording, stopRecording } from '../../utils/audio-recorder'
-import { cancelSpeech } from '../../utils/tts'
+import { cancelSpeech, speakText } from '../../utils/tts'
 
 export default function VoiceIndicator() {
   const {
@@ -70,6 +71,69 @@ export default function VoiceIndicator() {
     })
     return cleanup
   }, [])
+
+  // --- Voice Queue Loop: Effect A — Auto-speak on new awaiting_input ---
+  const queue = useCommandCenterStore(s => s.queue)
+  const { autoTtsEnabled, lastTranscription } = useVoiceStore()
+  const spokenRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!voiceEnabled || !autoTtsEnabled) return
+
+    // Clean stale processIds from the spoken set
+    const currentIds = new Set(queue.map(i => i.processId))
+    for (const id of spokenRef.current) {
+      if (!currentIds.has(id)) spokenRef.current.delete(id)
+    }
+
+    // Find new awaiting_input items not yet spoken
+    const newAwaiting = queue.find(
+      i => i.status === 'awaiting_input' && i.resultText && !spokenRef.current.has(i.processId)
+    )
+    if (!newAwaiting) return
+
+    spokenRef.current.add(newAwaiting.processId)
+
+    ;(async () => {
+      let summary: string
+      try {
+        summary = await window.electronAPI.ccSummarizeForVoice(newAwaiting.resultText!)
+      } catch {
+        summary = newAwaiting.resultText!.slice(0, 200)
+      }
+
+      cancelSpeech()
+      setSpeaking(true)
+      speakText(
+        summary,
+        () => {
+          setSpeaking(false)
+          // 500ms delay before auto-starting recording to avoid mic picking up TTS
+          setTimeout(async () => {
+            if (!useVoiceStore.getState().voiceEnabled) return
+            if (!useVoiceStore.getState().modelReady) return
+            try {
+              await startRecording()
+              useVoiceStore.getState().setRecording(true)
+            } catch (err) {
+              console.error('[voice-queue] Failed to auto-start recording:', err)
+            }
+          }, 500)
+        },
+        () => setSpeaking(false),
+      )
+    })()
+  }, [queue, voiceEnabled, autoTtsEnabled])
+
+  // --- Voice Queue Loop: Effect B — Auto-respond with transcription ---
+  useEffect(() => {
+    if (!lastTranscription) return
+    const awaitingItem = queue.find(i => i.status === 'awaiting_input')
+    if (!awaitingItem) return
+    const text = lastTranscription
+    setLastTranscription('')
+    useCommandCenterStore.getState().respond(awaitingItem.processId, text)
+  }, [lastTranscription, queue])
 
   const handleDownloadModel = async () => {
     setModelDownloading(true)

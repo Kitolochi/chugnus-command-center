@@ -177,6 +177,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ccGetProjectDescription: (opts: { projectPath: string }) => ipcRenderer.invoke('cc:get-project-description', opts),
   ccBrowseProject: () => ipcRenderer.invoke('cc:browse-project'),
   ccCreateProject: (opts: { name: string }) => ipcRenderer.invoke('cc:create-project', opts),
+  ccSummarizeForVoice: (text: string) => ipcRenderer.invoke('cc:summarize-for-voice', text),
   onCCQueueUpdate: (callback: (queue: any[]) => void) => {
     const handler = (_: any, queue: any[]) => callback(queue)
     ipcRenderer.on('cc:queue-update', handler)
