@@ -2,8 +2,9 @@ const MAX_RECORDING_MS = 12000  // auto-stop after 12 seconds
 
 let mediaStream: MediaStream | null = null
 let mediaRecorder: MediaRecorder | null = null
-let audioChunks: Blob[] = []
 let maxTimer: ReturnType<typeof setTimeout> | null = null
+// Per-session chunks array — prevents cross-contamination between recordings
+let sessionChunks: Blob[] | null = null
 
 /** Clean up all audio resources */
 function cleanup(): void {
@@ -16,12 +17,15 @@ function cleanup(): void {
     mediaStream.getTracks().forEach((t) => t.stop())
     mediaStream = null
   }
-  audioChunks = []
+  sessionChunks = null
 }
 
 export async function startRecording(deviceId?: string, onMaxDuration?: () => void): Promise<void> {
   cleanup()
-  audioChunks = []
+
+  // Fresh chunks array for this recording session
+  const chunks: Blob[] = []
+  sessionChunks = chunks
 
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -34,7 +38,7 @@ export async function startRecording(deviceId?: string, onMaxDuration?: () => vo
 
   mediaRecorder = new MediaRecorder(mediaStream)
   mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) audioChunks.push(e.data)
+    if (e.data.size > 0) chunks.push(e.data)
   }
   mediaRecorder.start(250)
 
@@ -47,8 +51,7 @@ export async function startRecording(deviceId?: string, onMaxDuration?: () => vo
   }
 }
 
-/** Stop recording and return the raw webm audio blob as ArrayBuffer.
- *  No AudioContext is used — conversion to PCM happens in the main process via ffmpeg. */
+/** Stop recording and return the raw webm audio blob as ArrayBuffer. */
 export async function stopRecording(): Promise<ArrayBuffer> {
   if (maxTimer) { clearTimeout(maxTimer); maxTimer = null }
 
@@ -59,9 +62,18 @@ export async function stopRecording(): Promise<ArrayBuffer> {
       return
     }
 
-    mediaRecorder.onstop = async () => {
+    // Capture the chunks array for THIS session (closure)
+    const chunks = sessionChunks
+    const recorder = mediaRecorder
+
+    recorder.onstop = async () => {
       try {
-        const blob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
+        if (!chunks || chunks.length === 0) {
+          cleanup()
+          reject(new Error('No audio data captured'))
+          return
+        }
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
         const arrayBuffer = await blob.arrayBuffer()
         cleanup()
         resolve(arrayBuffer)
@@ -71,11 +83,8 @@ export async function stopRecording(): Promise<ArrayBuffer> {
       }
     }
 
-    mediaRecorder.stop()
-    if (mediaStream) {
-      mediaStream.getTracks().forEach((t) => t.stop())
-      mediaStream = null
-    }
+    // Stop recorder first, let onstop handle cleanup (including stream tracks)
+    recorder.stop()
   })
 }
 

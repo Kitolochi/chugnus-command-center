@@ -164,8 +164,10 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     const wavPath = path.join(tmpDir, `recording-${ts}.wav`)
     try {
       // 1. Save raw webm from renderer
-      fs.writeFileSync(webmPath, audioBuffer)
-      console.log('[voice] Saved webm:', audioBuffer.length, 'bytes')
+      const buf = Buffer.from(audioBuffer)
+      fs.writeFileSync(webmPath, buf)
+      const header = buf.slice(0, 4).toString('hex')
+      console.log('[voice] Saved webm:', buf.length, 'bytes, header:', header, header === '1a45dfa3' ? '(valid EBML)' : '(NOT valid EBML!)')
 
       // 2. Convert to 16kHz mono WAV via ffmpeg
       execFileSync('ffmpeg', [
@@ -182,20 +184,22 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
         language: 'en',
         no_prints: true,
       })
-      // Result is array of segments with various possible shapes
+      // Extract text — whisper-node-addon returns array of [start, end, speech] tuples
       let text = ''
       if (Array.isArray(result)) {
         text = result.map((s: any) => {
-          if (typeof s === 'string') return s
-          // Try known property names
-          return s.speech ?? s.text ?? s.segment ?? ''
+          // Tuple format: [startTime, endTime, speechText]
+          if (Array.isArray(s) || (s && typeof s === 'object' && '2' in s)) {
+            return (s[2] ?? '').toString().trim()
+          }
+          if (typeof s === 'string') {
+            return s.replace(/^\[[\d:.]+\s*-->\s*[\d:.]+\]\s*/, '').trim()
+          }
+          return (s.speech ?? s.text ?? '').toString().trim()
         }).join(' ').trim()
       } else if (typeof result === 'string') {
         text = result.trim()
       }
-      // Strip timestamp patterns (bracketed and bare)
-      text = text.replace(/\[\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/g, '')
-      text = text.replace(/\d{2}:\d{2}:\d{2}\.\d{3},?\s*/g, '')
       // Filter Whisper hallucinations on silence/noise
       const lower = text.toLowerCase().trim()
       const hallucinations = [
