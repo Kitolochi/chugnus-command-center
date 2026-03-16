@@ -76,7 +76,7 @@ export default function VoiceIndicator() {
     return cleanup
   }, [])
 
-  // --- Voice Queue Loop: Effect A — Auto-speak on new awaiting_input ---
+  // --- Voice Queue Loop: Effect A — Auto-speak first awaiting_input only ---
   const queue = useCommandCenterStore(s => s.queue)
   const { autoTtsEnabled, lastTranscription } = useVoiceStore()
   const spokenRef = useRef<Set<string>>(new Set())
@@ -90,40 +90,31 @@ export default function VoiceIndicator() {
       if (!currentIds.has(id)) spokenRef.current.delete(id)
     }
 
-    // Find new awaiting_input items not yet spoken
-    const newAwaiting = queue.find(
+    // Only speak the first awaiting_input item, skip the rest
+    const awaitingItems = queue.filter(
       i => i.status === 'awaiting_input' && i.resultText && !spokenRef.current.has(i.processId)
     )
-    if (!newAwaiting) return
+    if (awaitingItems.length === 0) return
 
-    spokenRef.current.add(newAwaiting.processId)
+    const firstAwaiting = awaitingItems[0]
+    // Mark ALL awaiting items as spoken so we don't read subsequent ones
+    for (const item of awaitingItems) {
+      spokenRef.current.add(item.processId)
+    }
 
     ;(async () => {
       let summary: string
       try {
-        summary = await window.electronAPI.ccSummarizeForVoice(newAwaiting.resultText!)
+        summary = await window.electronAPI.ccSummarizeForVoice(firstAwaiting.resultText!)
       } catch {
-        summary = newAwaiting.resultText!.slice(0, 200)
+        summary = firstAwaiting.resultText!.slice(0, 200)
       }
 
       cancelSpeech()
       setSpeaking(true)
       speakText(
         summary,
-        () => {
-          setSpeaking(false)
-          // 500ms delay before auto-starting recording to avoid mic picking up TTS
-          setTimeout(async () => {
-            if (!useVoiceStore.getState().voiceEnabled) return
-            if (!useVoiceStore.getState().modelReady) return
-            try {
-              await startRecording(useVoiceStore.getState().inputDeviceId || undefined)
-              useVoiceStore.getState().setRecording(true)
-            } catch (err) {
-              console.error('[voice-queue] Failed to auto-start recording:', err)
-            }
-          }, 500)
-        },
+        () => setSpeaking(false),
         () => setSpeaking(false),
       )
     })()

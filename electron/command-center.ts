@@ -68,7 +68,11 @@ function hashColor(str: string): string {
 
 /** Send lightweight queue (no fullLog) to renderer to keep IPC small */
 function notifyRenderer() {
-  mainWindow?.webContents.send('cc:queue-update', getLightQueue())
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('cc:queue-update', getLightQueue())
+    }
+  } catch {}
 }
 
 // --- Public API ---
