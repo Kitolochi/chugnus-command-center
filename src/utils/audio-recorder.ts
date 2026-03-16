@@ -1,49 +1,26 @@
 const TARGET_SAMPLE_RATE = 16000
 
-let audioContext: AudioContext | null = null
 let mediaStream: MediaStream | null = null
-let sourceNode: MediaStreamAudioSourceNode | null = null
-let workletNode: AudioWorkletNode | null = null
-let pcmChunks: Float32Array[] = []
-let workletReady = false
-
-const WORKLET_CODE = `
-class PCMProcessor extends AudioWorkletProcessor {
-  process(inputs) {
-    const ch = inputs[0]?.[0]
-    if (ch && ch.length > 0) {
-      this.port.postMessage(new Float32Array(ch))
-    }
-    return true
-  }
-}
-registerProcessor('pcm-processor', PCMProcessor)
-`
+let mediaRecorder: MediaRecorder | null = null
+let audioChunks: Blob[] = []
 
 /** Clean up all audio resources */
-async function cleanup(): Promise<void> {
-  if (workletNode) {
-    try { workletNode.disconnect() } catch {}
-    workletNode = null
+function cleanup(): void {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    try { mediaRecorder.stop() } catch {}
   }
-  if (sourceNode) {
-    try { sourceNode.disconnect() } catch {}
-    sourceNode = null
-  }
-  if (audioContext && audioContext.state !== 'closed') {
-    try { await audioContext.close() } catch {}
-  }
-  audioContext = null
+  mediaRecorder = null
   if (mediaStream) {
     mediaStream.getTracks().forEach((t) => t.stop())
     mediaStream = null
   }
+  audioChunks = []
 }
 
 export async function startRecording(deviceId?: string): Promise<void> {
   // Always clean up previous recording first
-  await cleanup()
-  pcmChunks = []
+  cleanup()
+  audioChunks = []
 
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -54,58 +31,60 @@ export async function startRecording(deviceId?: string): Promise<void> {
     },
   })
 
-  // Use browser's default sample rate (usually 48000) — we'll downsample on stop
-  audioContext = new AudioContext()
-
-  // Register AudioWorklet processor (once per context)
-  if (!workletReady) {
-    const blob = new Blob([WORKLET_CODE], { type: 'application/javascript' })
-    const url = URL.createObjectURL(blob)
-    await audioContext.audioWorklet.addModule(url)
-    URL.revokeObjectURL(url)
-    workletReady = true
+  mediaRecorder = new MediaRecorder(mediaStream)
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) audioChunks.push(e.data)
   }
-
-  sourceNode = audioContext.createMediaStreamSource(mediaStream)
-  workletNode = new AudioWorkletNode(audioContext, 'pcm-processor')
-
-  workletNode.port.onmessage = (e: MessageEvent<Float32Array>) => {
-    pcmChunks.push(e.data)
-  }
-
-  sourceNode.connect(workletNode)
-  // Connect to destination to keep the audio graph alive
-  workletNode.connect(audioContext.destination)
+  mediaRecorder.start(250) // collect chunks every 250ms
 }
 
 export async function stopRecording(): Promise<ArrayBuffer> {
-  const nativeSampleRate = audioContext?.sampleRate ?? 48000
+  return new Promise((resolve, reject) => {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+      cleanup()
+      reject(new Error('No active recording'))
+      return
+    }
 
-  await cleanup()
-  // workletReady must be reset since the context was closed
-  workletReady = false
+    mediaRecorder.onstop = async () => {
+      try {
+        const blob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
+        const arrayBuffer = await blob.arrayBuffer()
 
-  // Merge chunks into a single Float32Array
-  const totalLength = pcmChunks.reduce((sum, c) => sum + c.length, 0)
-  const merged = new Float32Array(totalLength)
-  let offset = 0
-  for (const chunk of pcmChunks) {
-    merged.set(chunk, offset)
-    offset += chunk.length
-  }
-  pcmChunks = []
+        // Decode audio blob to PCM using OfflineAudioContext
+        const audioCtx = new AudioContext()
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+        await audioCtx.close()
 
-  // Downsample from native rate to 16kHz for Whisper
-  const resampled = downsample(merged, nativeSampleRate, TARGET_SAMPLE_RATE)
+        // Get raw PCM float data (mono, channel 0)
+        const rawPcm = audioBuffer.getChannelData(0)
+        const nativeSampleRate = audioBuffer.sampleRate
 
-  // Convert Float32 [-1, 1] to Int16 PCM
-  const int16 = new Int16Array(resampled.length)
-  for (let i = 0; i < resampled.length; i++) {
-    const clamped = Math.max(-1, Math.min(1, resampled[i]))
-    int16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF
-  }
+        // Downsample to 16kHz for Whisper
+        const resampled = downsample(rawPcm, nativeSampleRate, TARGET_SAMPLE_RATE)
 
-  return int16.buffer
+        // Convert Float32 [-1, 1] to Int16 PCM
+        const int16 = new Int16Array(resampled.length)
+        for (let i = 0; i < resampled.length; i++) {
+          const clamped = Math.max(-1, Math.min(1, resampled[i]))
+          int16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF
+        }
+
+        cleanup()
+        resolve(int16.buffer)
+      } catch (err) {
+        cleanup()
+        reject(err)
+      }
+    }
+
+    mediaRecorder.stop()
+    // Stop tracks immediately so the mic indicator turns off
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop())
+      mediaStream = null
+    }
+  })
 }
 
 /** Simple linear interpolation downsample */
@@ -126,5 +105,5 @@ function downsample(buffer: Float32Array, fromRate: number, toRate: number): Flo
 }
 
 export function isRecordingActive(): boolean {
-  return mediaStream !== null
+  return mediaRecorder !== null && mediaRecorder.state === 'recording'
 }
