@@ -1,10 +1,11 @@
 import { BrowserWindow, globalShortcut, ipcMain, app } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 import https from 'https'
 import { getHotkeySettings, saveHotkeySettings, getVoiceDeviceSettings, saveVoiceDeviceSettings } from '../database'
 
-let whisperInstance: any = null
+let transcribeFn: ((opts: any) => Promise<any>) | null = null
 const MODEL_NAME = 'ggml-base.en.bin'
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`
 
@@ -23,17 +24,44 @@ function isModelDownloaded(): boolean {
 }
 
 async function initWhisper(): Promise<void> {
-  if (whisperInstance) return
+  if (transcribeFn) return
   if (!isModelDownloaded()) return
 
   try {
-    const { whisper } = await import('whisper-node-addon')
-    whisperInstance = whisper(getModelPath(), { language: 'en' })
-    console.log('[voice] Whisper model loaded')
+    const { transcribe } = await import('whisper-node-addon')
+    transcribeFn = transcribe
+    console.log('[voice] Whisper module loaded')
   } catch (err) {
-    console.error('[voice] Failed to init whisper:', err)
-    whisperInstance = null
+    console.error('[voice] Failed to load whisper module:', err)
+    transcribeFn = null
   }
+}
+
+/** Write PCM Int16 buffer as a 16kHz mono WAV file */
+function writeWav(pcmBuffer: Buffer, filePath: string): void {
+  const sampleRate = 16000
+  const numChannels = 1
+  const bitsPerSample = 16
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8)
+  const blockAlign = numChannels * (bitsPerSample / 8)
+  const dataSize = pcmBuffer.length
+
+  const header = Buffer.alloc(44)
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + dataSize, 4)
+  header.write('WAVE', 8)
+  header.write('fmt ', 12)
+  header.writeUInt32LE(16, 16)        // fmt chunk size
+  header.writeUInt16LE(1, 20)         // PCM format
+  header.writeUInt16LE(numChannels, 22)
+  header.writeUInt32LE(sampleRate, 24)
+  header.writeUInt32LE(byteRate, 28)
+  header.writeUInt16LE(blockAlign, 32)
+  header.writeUInt16LE(bitsPerSample, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(dataSize, 40)
+
+  fs.writeFileSync(filePath, Buffer.concat([header, pcmBuffer]))
 }
 
 function downloadModel(mainWindow: BrowserWindow): Promise<void> {
@@ -102,7 +130,7 @@ function safeSend(win: BrowserWindow, channel: string, ...args: any[]) {
 export function registerVoiceHandlers(mainWindow: BrowserWindow) {
   // Check model status
   ipcMain.handle('voice:model-status', () => {
-    return { downloaded: isModelDownloaded(), ready: !!whisperInstance }
+    return { downloaded: isModelDownloaded(), ready: isModelDownloaded() }
   })
 
   // Download model
@@ -120,25 +148,41 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     }
   })
 
-  // Transcribe PCM audio buffer
+  // Transcribe PCM audio buffer (Int16 16kHz mono)
   ipcMain.handle('voice:transcribe', async (_event, pcmBuffer: Buffer) => {
-    if (!whisperInstance) {
+    if (!transcribeFn) {
       await initWhisper()
     }
-    if (!whisperInstance) {
-      return { text: '', error: 'Whisper model not loaded' }
+    if (!transcribeFn) {
+      return { text: '', error: 'Whisper module not loaded' }
     }
+    const tmpDir = path.join(os.tmpdir(), 'chugnus-voice')
+    fs.mkdirSync(tmpDir, { recursive: true })
+    const wavPath = path.join(tmpDir, `recording-${Date.now()}.wav`)
     try {
-      // whisper-node-addon expects Int16Array (PCM 16-bit mono 16kHz)
-      const int16 = new Int16Array(pcmBuffer.buffer, pcmBuffer.byteOffset, pcmBuffer.byteLength / 2)
-      const result = await whisperInstance.transcribe(int16)
-      const text = Array.isArray(result)
-        ? result.map((s: any) => s.text || s).join(' ').trim()
-        : (typeof result === 'string' ? result.trim() : '')
+      writeWav(pcmBuffer, wavPath)
+      const result = await transcribeFn({
+        model: getModelPath(),
+        fname_inp: wavPath,
+        language: 'en',
+        no_prints: true,
+      })
+      // Result is array of segments: [{ start, end, speech }, ...]
+      let text = ''
+      if (Array.isArray(result)) {
+        text = result.map((s: any) => s.speech || s.text || s).join(' ').trim()
+      } else if (typeof result === 'string') {
+        text = result.trim()
+      }
+      // Strip leading [timestamp] patterns like "[00:00:00.000 --> 00:00:03.000]"
+      text = text.replace(/\[\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/g, '').trim()
+      console.log('[voice] Transcribed:', text.slice(0, 100))
       return { text }
     } catch (err: any) {
       console.error('[voice] Transcription error:', err)
       return { text: '', error: err.message }
+    } finally {
+      try { fs.unlinkSync(wavPath) } catch {}
     }
   })
 
@@ -201,7 +245,7 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     }
   })
 
-  // Pre-load whisper if model already downloaded
+  // Pre-load whisper module if model already downloaded
   if (isModelDownloaded()) {
     setTimeout(() => initWhisper(), 3000)
   }
