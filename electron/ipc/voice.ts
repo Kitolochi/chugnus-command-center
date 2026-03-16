@@ -93,7 +93,7 @@ function downloadModel(mainWindow: BrowserWindow): Promise<void> {
 /** Safely send IPC to renderer — avoids "Render frame was disposed" crash */
 function safeSend(win: BrowserWindow, channel: string, ...args: any[]) {
   try {
-    if (win && !win.isDestroyed()) {
+    if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
       win.webContents.send(channel, ...args)
     }
   } catch {}

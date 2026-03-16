@@ -120,30 +120,28 @@ export default function VoiceIndicator() {
   // Listen for hotkey from main process
   useEffect(() => {
     const cleanup = window.electronAPI.onVoiceHotkey(async () => {
-      if (!voiceEnabled) return
-
-      if (isSpeaking) {
-        // Skip dialogue — cancel speech and let pipeline continue to recording
-        skipDialogue()
-        return
-      }
-
-      if (isRecording) {
-        // Stop recording and transcribe → respond → next
-        await finishRecordingAndRespond()
-        return
-      }
-
-      // Idle — manual start recording (outside of queue flow)
-      if (!modelReady) {
-        handleDownloadModel()
-        return
-      }
       try {
+        if (!voiceEnabled) return
+
+        if (isSpeaking) {
+          skipDialogue()
+          return
+        }
+
+        if (isRecording) {
+          await finishRecordingAndRespond()
+          return
+        }
+
+        // Idle — manual start recording (outside of queue flow)
+        if (!modelReady) {
+          handleDownloadModel()
+          return
+        }
         await startRecording(inputDeviceId || undefined)
         setRecording(true)
       } catch (err) {
-        console.error('[voice] Failed to start recording:', err)
+        console.error('[voice] Hotkey handler error:', err)
       }
     })
     return cleanup
