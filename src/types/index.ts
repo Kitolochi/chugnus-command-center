@@ -1,5 +1,9 @@
 // === LLM Settings ===
 
+export interface HotkeySettings {
+  voiceToggle: string
+}
+
 export type LLMProvider = 'claude' | 'gemini' | 'groq' | 'openrouter' | 'chatgpt' | 'claudeProxy'
 
 export interface LLMSettings {
@@ -718,6 +722,10 @@ export interface ElectronAPI {
   // Clipboard
   readClipboard: () => string
   writeClipboard: (text: string) => void
+
+  // Hotkey Settings
+  getHotkeySettings: () => Promise<HotkeySettings>
+  saveHotkeySettings: (settings: Partial<HotkeySettings>) => Promise<HotkeySettings>
 
   // Voice
   voiceTranscribe: (pcmBuffer: ArrayBuffer) => Promise<{ text: string; error?: string }>

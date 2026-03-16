@@ -221,6 +221,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readClipboard: () => ipcRenderer.sendSync('read-clipboard'),
   writeClipboard: (text: string) => ipcRenderer.send('write-clipboard', text),
 
+  // Hotkey Settings
+  getHotkeySettings: () => ipcRenderer.invoke('hotkey:get-settings'),
+  saveHotkeySettings: (settings: any) => ipcRenderer.invoke('hotkey:save-settings', settings),
+
   // Voice
   voiceTranscribe: (pcmBuffer: ArrayBuffer) => ipcRenderer.invoke('voice:transcribe', Buffer.from(pcmBuffer)),
   voiceModelStatus: () => ipcRenderer.invoke('voice:model-status'),

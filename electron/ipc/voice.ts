@@ -2,6 +2,7 @@ import { BrowserWindow, globalShortcut, ipcMain, app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import https from 'https'
+import { getHotkeySettings, saveHotkeySettings } from '../database'
 
 let whisperInstance: any = null
 const MODEL_NAME = 'ggml-base.en.bin'
@@ -132,11 +133,54 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     }
   })
 
-  // Register global hotkey for voice toggle
-  app.whenReady().then(() => {
-    globalShortcut.register('CommandOrControl+Shift+Space', () => {
+  // Hotkey settings CRUD
+  ipcMain.handle('hotkey:get-settings', () => {
+    return getHotkeySettings()
+  })
+
+  ipcMain.handle('hotkey:save-settings', (_, updates: { voiceToggle?: string }) => {
+    const oldSettings = getHotkeySettings()
+
+    // Unregister old hotkey
+    try { globalShortcut.unregister(oldSettings.voiceToggle) } catch {}
+
+    const newSettings = saveHotkeySettings(updates)
+
+    // Register new hotkey
+    const success = globalShortcut.register(newSettings.voiceToggle, () => {
       mainWindow.webContents.send('voice:hotkey-pressed')
+      if (!mainWindow.isVisible()) mainWindow.show()
+      mainWindow.focus()
     })
+
+    if (!success) {
+      // Revert on failure
+      saveHotkeySettings({ voiceToggle: oldSettings.voiceToggle })
+      try {
+        globalShortcut.register(oldSettings.voiceToggle, () => {
+          mainWindow.webContents.send('voice:hotkey-pressed')
+          if (!mainWindow.isVisible()) mainWindow.show()
+          mainWindow.focus()
+        })
+      } catch {}
+      throw new Error('Failed to register hotkey — it may conflict with another app')
+    }
+
+    return newSettings
+  })
+
+  // Register global hotkey for voice toggle from saved settings
+  app.whenReady().then(() => {
+    try {
+      const settings = getHotkeySettings()
+      globalShortcut.register(settings.voiceToggle, () => {
+        mainWindow.webContents.send('voice:hotkey-pressed')
+        if (!mainWindow.isVisible()) mainWindow.show()
+        mainWindow.focus()
+      })
+    } catch (err) {
+      console.error('[voice] Failed to register hotkey:', err)
+    }
   })
 
   // Pre-load whisper if model already downloaded

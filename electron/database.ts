@@ -259,6 +259,10 @@ interface MemorySettings {
   tokenBudget: number
 }
 
+export interface HotkeySettings {
+  voiceToggle: string  // Electron accelerator format, e.g. 'CommandOrControl+Shift+Space'
+}
+
 export interface LLMSettings {
   provider: 'claude' | 'gemini' | 'groq' | 'openrouter' | 'chatgpt' | 'claudeProxy'
   geminiApiKey: string
@@ -652,6 +656,8 @@ interface Database {
   collabHistory: CollabHistoryEntry[]
   // Daily prompt counter
   dailyPrompts: { date: string; count: number }
+  // Hotkey Settings
+  hotkeySettings: HotkeySettings
 }
 
 let db: Database
@@ -1148,6 +1154,12 @@ export function initDatabase(): Database {
   // Initialize daily prompt counter if missing
   if (!(db as any).dailyPrompts) {
     db.dailyPrompts = { date: todayLocal(), count: 0 }
+    saveDatabase()
+  }
+
+  // Initialize hotkeySettings if missing
+  if (!(db as any).hotkeySettings) {
+    db.hotkeySettings = { voiceToggle: 'CommandOrControl+Shift+Space' }
     saveDatabase()
   }
 
@@ -2133,6 +2145,17 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
   if (updates.fastModel !== undefined) db.llmSettings.fastModel = updates.fastModel
   saveDatabase()
   return db.llmSettings
+}
+
+// Hotkey Settings
+export function getHotkeySettings(): HotkeySettings {
+  return db.hotkeySettings
+}
+
+export function saveHotkeySettings(updates: Partial<HotkeySettings>): HotkeySettings {
+  if (updates.voiceToggle !== undefined) db.hotkeySettings.voiceToggle = updates.voiceToggle
+  saveDatabase()
+  return db.hotkeySettings
 }
 
 // Welcome modal
