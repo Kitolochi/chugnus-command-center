@@ -7,11 +7,17 @@ let sourceNode: MediaStreamAudioSourceNode | null = null
 let scriptNode: ScriptProcessorNode | null = null
 let pcmChunks: Float32Array[] = []
 
-export async function startRecording(): Promise<void> {
+export async function startRecording(deviceId?: string): Promise<void> {
   pcmChunks = []
 
   mediaStream = await navigator.mediaDevices.getUserMedia({
-    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+    audio: {
+      sampleRate: SAMPLE_RATE,
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true,
+      ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+    },
   })
 
   audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })

@@ -10,6 +10,8 @@ interface VoiceState {
   modelDownloading: boolean
   modelProgress: number
   lastTranscription: string
+  inputDeviceId: string
+  outputDeviceId: string
 
   setRecording: (v: boolean) => void
   setTranscribing: (v: boolean) => void
@@ -20,6 +22,8 @@ interface VoiceState {
   setModelDownloading: (v: boolean) => void
   setModelProgress: (v: number) => void
   setLastTranscription: (v: string) => void
+  setInputDeviceId: (v: string) => void
+  setOutputDeviceId: (v: string) => void
 }
 
 export const useVoiceStore = create<VoiceState>((set) => ({
@@ -32,6 +36,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   modelDownloading: false,
   modelProgress: 0,
   lastTranscription: '',
+  inputDeviceId: '',
+  outputDeviceId: '',
 
   setRecording: (v) => set({ isRecording: v }),
   setTranscribing: (v) => set({ isTranscribing: v }),
@@ -42,4 +48,6 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setModelDownloading: (v) => set({ modelDownloading: v }),
   setModelProgress: (v) => set({ modelProgress: v }),
   setLastTranscription: (v) => set({ lastTranscription: v }),
+  setInputDeviceId: (v) => set({ inputDeviceId: v }),
+  setOutputDeviceId: (v) => set({ outputDeviceId: v }),
 }))

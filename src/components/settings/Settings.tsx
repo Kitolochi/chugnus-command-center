@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import AIProviderSettings from './AIProviderSettings'
 import ChatGPTSettings from './ChatGPTSettings'
+import VoiceDeviceSettings from './VoiceDeviceSettings'
 
 const SHORTCUTS = [
   { key: 'X', label: 'Command Center' },
@@ -126,6 +127,9 @@ export default function Settings() {
 
       {/* ChatGPT Account */}
       <ChatGPTSettings />
+
+      {/* Voice Device Selection */}
+      <VoiceDeviceSettings />
 
       {/* Configurable Hotkeys */}
       <div className="mb-6 animate-stagger-in" style={{ animationDelay: '100ms' }}>

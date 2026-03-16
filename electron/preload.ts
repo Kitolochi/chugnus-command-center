@@ -226,6 +226,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getHotkeySettings: () => ipcRenderer.invoke('hotkey:get-settings'),
   saveHotkeySettings: (settings: any) => ipcRenderer.invoke('hotkey:save-settings', settings),
 
+  // Voice Device Settings
+  getVoiceDeviceSettings: () => ipcRenderer.invoke('voice:get-device-settings'),
+  saveVoiceDeviceSettings: (settings: any) => ipcRenderer.invoke('voice:save-device-settings', settings),
+
   // Voice
   voiceTranscribe: (pcmBuffer: ArrayBuffer) => ipcRenderer.invoke('voice:transcribe', Buffer.from(pcmBuffer)),
   voiceModelStatus: () => ipcRenderer.invoke('voice:model-status'),

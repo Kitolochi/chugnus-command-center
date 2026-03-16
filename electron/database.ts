@@ -263,6 +263,11 @@ export interface HotkeySettings {
   voiceToggle: string  // Electron accelerator format, e.g. 'CommandOrControl+Shift+Space'
 }
 
+export interface VoiceDeviceSettings {
+  inputDeviceId: string   // '' = system default
+  outputDeviceId: string  // '' = system default
+}
+
 export interface LLMSettings {
   provider: 'claude' | 'gemini' | 'groq' | 'openrouter' | 'chatgpt' | 'claudeProxy'
   geminiApiKey: string
@@ -658,6 +663,8 @@ interface Database {
   dailyPrompts: { date: string; count: number }
   // Hotkey Settings
   hotkeySettings: HotkeySettings
+  // Voice Device Settings
+  voiceDeviceSettings: VoiceDeviceSettings
 }
 
 let db: Database
@@ -1160,6 +1167,12 @@ export function initDatabase(): Database {
   // Initialize hotkeySettings if missing
   if (!(db as any).hotkeySettings) {
     db.hotkeySettings = { voiceToggle: 'CommandOrControl+Shift+Space' }
+    saveDatabase()
+  }
+
+  // Initialize voiceDeviceSettings if missing
+  if (!(db as any).voiceDeviceSettings) {
+    db.voiceDeviceSettings = { inputDeviceId: '', outputDeviceId: '' }
     saveDatabase()
   }
 
@@ -2156,6 +2169,18 @@ export function saveHotkeySettings(updates: Partial<HotkeySettings>): HotkeySett
   if (updates.voiceToggle !== undefined) db.hotkeySettings.voiceToggle = updates.voiceToggle
   saveDatabase()
   return db.hotkeySettings
+}
+
+// Voice Device Settings
+export function getVoiceDeviceSettings(): VoiceDeviceSettings {
+  return db.voiceDeviceSettings
+}
+
+export function saveVoiceDeviceSettings(updates: Partial<VoiceDeviceSettings>): VoiceDeviceSettings {
+  if (updates.inputDeviceId !== undefined) db.voiceDeviceSettings.inputDeviceId = updates.inputDeviceId
+  if (updates.outputDeviceId !== undefined) db.voiceDeviceSettings.outputDeviceId = updates.outputDeviceId
+  saveDatabase()
+  return db.voiceDeviceSettings
 }
 
 // Welcome modal

@@ -2,7 +2,7 @@ import { BrowserWindow, globalShortcut, ipcMain, app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import https from 'https'
-import { getHotkeySettings, saveHotkeySettings } from '../database'
+import { getHotkeySettings, saveHotkeySettings, getVoiceDeviceSettings, saveVoiceDeviceSettings } from '../database'
 
 let whisperInstance: any = null
 const MODEL_NAME = 'ggml-base.en.bin'
@@ -131,6 +131,15 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
       console.error('[voice] Transcription error:', err)
       return { text: '', error: err.message }
     }
+  })
+
+  // Voice device settings
+  ipcMain.handle('voice:get-device-settings', () => {
+    return getVoiceDeviceSettings()
+  })
+
+  ipcMain.handle('voice:save-device-settings', (_, updates: { inputDeviceId?: string; outputDeviceId?: string }) => {
+    return saveVoiceDeviceSettings(updates)
   })
 
   // Hotkey settings CRUD

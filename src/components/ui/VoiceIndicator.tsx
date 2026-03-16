@@ -8,16 +8,20 @@ import { cancelSpeech, speakText } from '../../utils/tts'
 export default function VoiceIndicator() {
   const {
     isRecording, isTranscribing, isSpeaking, voiceEnabled, modelReady,
-    modelDownloading, modelProgress,
+    modelDownloading, modelProgress, inputDeviceId,
     setRecording, setTranscribing, setSpeaking, setModelReady, setModelDownloading, setModelProgress,
-    setLastTranscription, toggleVoice,
+    setLastTranscription, toggleVoice, setInputDeviceId, setOutputDeviceId,
   } = useVoiceStore()
 
-  // Check model status on mount
+  // Check model status + hydrate device settings on mount
   useEffect(() => {
     window.electronAPI.voiceModelStatus().then((status) => {
       setModelReady(status.ready || status.downloaded)
     })
+    window.electronAPI.getVoiceDeviceSettings().then((settings) => {
+      setInputDeviceId(settings.inputDeviceId)
+      setOutputDeviceId(settings.outputDeviceId)
+    }).catch(() => {})
   }, [])
 
   // Listen for hotkey from main process
@@ -54,7 +58,7 @@ export default function VoiceIndicator() {
           return
         }
         try {
-          await startRecording()
+          await startRecording(inputDeviceId || undefined)
           setRecording(true)
         } catch (err) {
           console.error('[voice] Failed to start recording:', err)
@@ -62,7 +66,7 @@ export default function VoiceIndicator() {
       }
     })
     return cleanup
-  }, [voiceEnabled, isRecording, isSpeaking, modelReady])
+  }, [voiceEnabled, isRecording, isSpeaking, modelReady, inputDeviceId])
 
   // Listen for model download progress
   useEffect(() => {
@@ -113,7 +117,7 @@ export default function VoiceIndicator() {
             if (!useVoiceStore.getState().voiceEnabled) return
             if (!useVoiceStore.getState().modelReady) return
             try {
-              await startRecording()
+              await startRecording(useVoiceStore.getState().inputDeviceId || undefined)
               useVoiceStore.getState().setRecording(true)
             } catch (err) {
               console.error('[voice-queue] Failed to auto-start recording:', err)
