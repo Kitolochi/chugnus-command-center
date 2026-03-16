@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
+import { useVoiceStore } from '../../store/voiceStore'
 import { Button, Badge } from '../ui'
 import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause, AlertTriangle, Square } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import { renderMarkdown } from '../../utils/markdown'
+import { speakText, cancelSpeech } from '../../utils/tts'
 import type { FileAttachment } from '../../types'
 
 function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () => void }) {
@@ -67,6 +69,29 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   useEffect(() => {
     if (item.status === 'awaiting_input') inputRef.current?.focus()
   }, [item.status, item.processId])
+
+  // Auto-TTS: speak resultText when item transitions to awaiting_input
+  const { autoTtsEnabled, setSpeaking, lastTranscription, setLastTranscription } = useVoiceStore()
+  const prevStatusRef = useRef(item.status)
+  useEffect(() => {
+    const wasNotAwaiting = prevStatusRef.current !== 'awaiting_input'
+    prevStatusRef.current = item.status
+    if (!autoTtsEnabled) return
+    if (item.status === 'awaiting_input' && wasNotAwaiting && item.resultText) {
+      cancelSpeech()
+      setSpeaking(true)
+      speakText(item.resultText, () => setSpeaking(false), () => setSpeaking(false))
+    }
+  }, [item.status, item.processId, autoTtsEnabled])
+
+  // Voice transcription → queue response: inject and auto-send
+  useEffect(() => {
+    if (!lastTranscription) return
+    if (item.status !== 'awaiting_input') return
+    const text = lastTranscription
+    setLastTranscription('')
+    respond(item.processId, text)
+  }, [lastTranscription, item.status, item.processId])
 
   const handleLinkClick = useCallback((e: React.MouseEvent) => {
     const link = (e.target as HTMLElement).closest('a[data-external-link]') as HTMLAnchorElement | null
