@@ -231,7 +231,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveVoiceDeviceSettings: (settings: any) => ipcRenderer.invoke('voice:save-device-settings', settings),
 
   // Voice
-  voiceTranscribe: (pcmBuffer: ArrayBuffer) => ipcRenderer.invoke('voice:transcribe', Buffer.from(pcmBuffer)),
+  voiceTranscribe: (audioBuffer: ArrayBuffer) => ipcRenderer.invoke('voice:transcribe', Buffer.from(audioBuffer)),
   voiceModelStatus: () => ipcRenderer.invoke('voice:model-status'),
   voiceDownloadModel: () => ipcRenderer.invoke('voice:download-model'),
   onVoiceHotkey: (callback: () => void) => {

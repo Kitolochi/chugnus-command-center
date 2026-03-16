@@ -738,7 +738,7 @@ export interface ElectronAPI {
   saveVoiceDeviceSettings: (settings: Partial<VoiceDeviceSettings>) => Promise<VoiceDeviceSettings>
 
   // Voice
-  voiceTranscribe: (pcmBuffer: ArrayBuffer) => Promise<{ text: string; error?: string }>
+  voiceTranscribe: (audioBuffer: ArrayBuffer) => Promise<{ text: string; error?: string }>
   voiceModelStatus: () => Promise<{ downloaded: boolean; ready: boolean }>
   voiceDownloadModel: () => Promise<{ success: boolean; error?: string }>
   onVoiceHotkey: (callback: () => void) => () => void

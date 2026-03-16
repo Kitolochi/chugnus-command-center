@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import https from 'https'
+import { execFileSync } from 'child_process'
 import { getHotkeySettings, saveHotkeySettings, getVoiceDeviceSettings, saveVoiceDeviceSettings } from '../database'
 
 let transcribeFn: ((opts: any) => Promise<any>) | null = null
@@ -148,8 +149,8 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     }
   })
 
-  // Transcribe PCM audio buffer (Int16 16kHz mono)
-  ipcMain.handle('voice:transcribe', async (_event, pcmBuffer: Buffer) => {
+  // Transcribe raw audio (webm from MediaRecorder → ffmpeg convert → Whisper)
+  ipcMain.handle('voice:transcribe', async (_event, audioBuffer: Buffer) => {
     if (!transcribeFn) {
       await initWhisper()
     }
@@ -158,9 +159,23 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     }
     const tmpDir = path.join(os.tmpdir(), 'chugnus-voice')
     fs.mkdirSync(tmpDir, { recursive: true })
-    const wavPath = path.join(tmpDir, `recording-${Date.now()}.wav`)
+    const ts = Date.now()
+    const webmPath = path.join(tmpDir, `recording-${ts}.webm`)
+    const wavPath = path.join(tmpDir, `recording-${ts}.wav`)
     try {
-      writeWav(pcmBuffer, wavPath)
+      // 1. Save raw webm from renderer
+      fs.writeFileSync(webmPath, audioBuffer)
+      console.log('[voice] Saved webm:', audioBuffer.length, 'bytes')
+
+      // 2. Convert to 16kHz mono WAV via ffmpeg
+      execFileSync('ffmpeg', [
+        '-y', '-i', webmPath,
+        '-ar', '16000', '-ac', '1', '-f', 'wav',
+        wavPath,
+      ], { timeout: 10000, stdio: 'pipe' })
+      console.log('[voice] Converted to WAV')
+
+      // 3. Transcribe with Whisper
       const result = await transcribeFn({
         model: getModelPath(),
         fname_inp: wavPath,
@@ -174,7 +189,7 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
       } else if (typeof result === 'string') {
         text = result.trim()
       }
-      // Strip leading [timestamp] patterns like "[00:00:00.000 --> 00:00:03.000]"
+      // Strip timestamp patterns like "[00:00:00.000 --> 00:00:03.000]"
       text = text.replace(/\[\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/g, '').trim()
       console.log('[voice] Transcribed:', text.slice(0, 100))
       return { text }
@@ -182,6 +197,7 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
       console.error('[voice] Transcription error:', err)
       return { text: '', error: err.message }
     } finally {
+      try { fs.unlinkSync(webmPath) } catch {}
       try { fs.unlinkSync(wavPath) } catch {}
     }
   })
