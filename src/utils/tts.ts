@@ -30,7 +30,7 @@ export function speakText(
 ): SpeechSynthesisUtterance {
   const cleaned = stripMarkdownForSpeech(text)
   const utterance = new SpeechSynthesisUtterance(cleaned)
-  utterance.rate = 1.05
+  utterance.rate = 1.5
   utterance.pitch = 1.0
   if (onEnd) utterance.onend = () => onEnd()
   if (onError) utterance.onerror = (e) => onError(e.error)
