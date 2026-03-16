@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { Mic, MicOff, Volume2, Loader2, Download, SkipForward } from 'lucide-react'
+import { Mic, MicOff, Volume2, Loader2, Download, SkipForward, Radio } from 'lucide-react'
 import { useVoiceStore } from '../../store/voiceStore'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { startRecording, stopRecording } from '../../utils/audio-recorder'
@@ -13,9 +13,10 @@ interface QueueItem {
 export default function VoiceIndicator() {
   const {
     isRecording, isTranscribing, isSpeaking, voiceEnabled, modelReady,
-    modelDownloading, modelProgress, inputDeviceId, lastTranscription,
+    modelDownloading, modelProgress, lastTranscription,
+    alwaysListening,
     setRecording, setTranscribing, setSpeaking, setModelReady, setModelDownloading, setModelProgress,
-    setLastTranscription, toggleVoice, setInputDeviceId, setOutputDeviceId,
+    setLastTranscription, toggleVoice, setInputDeviceId, setOutputDeviceId, toggleAlwaysListening,
   } = useVoiceStore()
 
   // --- Speech queue refs (mutation-only, no re-renders) ---
@@ -34,6 +35,21 @@ export default function VoiceIndicator() {
       setInputDeviceId(settings.inputDeviceId)
       setOutputDeviceId(settings.outputDeviceId)
     }).catch(() => {})
+  }, [])
+
+  // --- Helper: start recording with max-duration callback ---
+  const beginRecording = useCallback(async () => {
+    const store = useVoiceStore.getState()
+    if (!store.voiceEnabled || !store.modelReady) return false
+    if (store.isRecording || store.isTranscribing) return false
+    try {
+      await startRecording(store.inputDeviceId || undefined, () => finishRef.current())
+      useVoiceStore.getState().setRecording(true)
+      return true
+    } catch (err) {
+      console.error('[voice] Failed to start recording:', err)
+      return false
+    }
   }, [])
 
   // --- Core pipeline: speak → delay → record → transcribe → respond → next ---
@@ -70,38 +86,26 @@ export default function VoiceIndicator() {
     await new Promise(r => setTimeout(r, 800))
 
     // 4. Auto-start recording (if still enabled)
-    const storeNow = useVoiceStore.getState()
-    if (!storeNow.voiceEnabled || !storeNow.modelReady) {
-      currentItemRef.current = null
-      processingRef.current = false
-      processNext()
-      return
-    }
-
-    try {
-      await startRecording(storeNow.inputDeviceId || undefined, () => finishRef.current())
-      setRecording(true)
-    } catch (err) {
-      console.error('[voice-queue] Failed to start recording:', err)
+    const started = await beginRecording()
+    if (!started) {
       currentItemRef.current = null
       processingRef.current = false
       processNext()
     }
-  }, [setSpeaking, setRecording])
+  }, [setSpeaking, beginRecording])
 
-  // --- Finish current pipeline step: transcribe, respond, advance ---
+  // --- Finish current recording: transcribe, respond, advance ---
   const finishRecordingAndRespond = useCallback(async () => {
     if (!useVoiceStore.getState().isRecording) return // guard against double-fire
     setRecording(false)
     setTranscribing(true)
     try {
-      const pcmBuffer = await stopRecording()
-      const result = await window.electronAPI.voiceTranscribe(pcmBuffer)
+      const audioBuffer = await stopRecording()
+      const result = await window.electronAPI.voiceTranscribe(audioBuffer)
       setLastTranscription(result.text || '(no speech detected)')
       if (result.text && currentItemRef.current) {
         useCommandCenterStore.getState().respond(currentItemRef.current.processId, result.text)
       }
-      // If empty transcription, don't loop — just stop the pipeline for this item
     } catch (err) {
       console.error('[voice] Transcription failed:', err)
       setLastTranscription('(transcription error)')
@@ -109,12 +113,15 @@ export default function VoiceIndicator() {
       setTranscribing(false)
       currentItemRef.current = null
       processingRef.current = false
-      // Only continue to next item if there are more queued
+      // Continue to next queue item if any
       if (speechQueueRef.current.length > 0) {
         setTimeout(() => processNext(), 500)
+      } else if (useVoiceStore.getState().alwaysListening) {
+        // Always-listening: restart recording after a brief pause
+        setTimeout(() => beginRecording(), 300)
       }
     }
-  }, [setRecording, setTranscribing, setLastTranscription, processNext])
+  }, [setRecording, setTranscribing, setLastTranscription, processNext, beginRecording])
 
   // Keep ref in sync so max-duration callback always calls latest version
   finishRef.current = finishRecordingAndRespond
@@ -124,6 +131,19 @@ export default function VoiceIndicator() {
     cancelSpeech()
     setSpeaking(false)
   }, [setSpeaking])
+
+  // --- Always-listening: auto-start recording when idle ---
+  useEffect(() => {
+    if (!alwaysListening || !voiceEnabled || !modelReady) return
+    if (isRecording || isTranscribing || isSpeaking || modelDownloading) return
+    if (processingRef.current) return
+
+    // Small delay to avoid rapid re-triggers
+    const timer = setTimeout(() => {
+      beginRecording()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [alwaysListening, voiceEnabled, modelReady, isRecording, isTranscribing, isSpeaking, modelDownloading, beginRecording])
 
   // Listen for hotkey from main process
   useEffect(() => {
@@ -146,14 +166,13 @@ export default function VoiceIndicator() {
           handleDownloadModel()
           return
         }
-        await startRecording(inputDeviceId || undefined, () => finishRef.current())
-        setRecording(true)
+        await beginRecording()
       } catch (err) {
         console.error('[voice] Hotkey handler error:', err)
       }
     })
     return cleanup
-  }, [voiceEnabled, isRecording, isSpeaking, modelReady, inputDeviceId, skipDialogue, finishRecordingAndRespond])
+  }, [voiceEnabled, isRecording, isSpeaking, modelReady, skipDialogue, finishRecordingAndRespond, beginRecording])
 
   // Listen for model download progress
   useEffect(() => {
@@ -236,7 +255,7 @@ export default function VoiceIndicator() {
     bgColor = 'bg-accent-blue/10'
   } else if (isRecording) {
     icon = <Mic size={14} />
-    label = 'Recording...'
+    label = alwaysListening ? 'Listening...' : 'Recording...'
     color = 'text-accent-red'
     bgColor = 'bg-accent-red/10'
     pulse = true
@@ -281,6 +300,22 @@ export default function VoiceIndicator() {
           >
             <SkipForward size={12} />
             <span>Skip</span>
+          </button>
+        )}
+
+        {/* Always-listening toggle */}
+        {voiceEnabled && modelReady && (
+          <button
+            onClick={toggleAlwaysListening}
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-full border transition-all text-[10px] font-medium ${
+              alwaysListening
+                ? 'border-accent-red/40 bg-accent-red/10 text-accent-red'
+                : 'border-white/10 bg-surface-3 text-white/30 hover:text-white/50 hover:border-white/20'
+            }`}
+            title={alwaysListening ? 'Turn off always-listening' : 'Turn on always-listening (open mic)'}
+          >
+            <Radio size={12} />
+            <span>{alwaysListening ? 'Live' : 'Open mic'}</span>
           </button>
         )}
 

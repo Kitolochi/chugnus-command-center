@@ -182,15 +182,33 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
         language: 'en',
         no_prints: true,
       })
-      // Result is array of segments: [{ start, end, speech }, ...]
+      // Result is array of segments with various possible shapes
       let text = ''
       if (Array.isArray(result)) {
-        text = result.map((s: any) => s.speech || s.text || s).join(' ').trim()
+        text = result.map((s: any) => {
+          if (typeof s === 'string') return s
+          // Try known property names
+          return s.speech ?? s.text ?? s.segment ?? ''
+        }).join(' ').trim()
       } else if (typeof result === 'string') {
         text = result.trim()
       }
-      // Strip timestamp patterns like "[00:00:00.000 --> 00:00:03.000]"
-      text = text.replace(/\[\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/g, '').trim()
+      // Strip timestamp patterns (bracketed and bare)
+      text = text.replace(/\[\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\]\s*/g, '')
+      text = text.replace(/\d{2}:\d{2}:\d{2}\.\d{3},?\s*/g, '')
+      // Filter Whisper hallucinations on silence/noise
+      const lower = text.toLowerCase().trim()
+      const hallucinations = [
+        /^\(.*\)$/, /^\[.*\]$/, // parenthetical or bracketed noise labels
+        /^(thank you|thanks)\.?$/i,
+        /^you$/i,
+        /^\.+$/,
+      ]
+      if (hallucinations.some(p => p.test(lower)) || lower.length < 2) {
+        console.log('[voice] Filtered hallucination:', text.slice(0, 60))
+        return { text: '' }
+      }
+      text = text.trim()
       console.log('[voice] Transcribed:', text.slice(0, 100))
       return { text }
     } catch (err: any) {
