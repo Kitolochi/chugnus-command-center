@@ -66,7 +66,7 @@ function downloadModel(mainWindow: BrowserWindow): Promise<void> {
           file.write(chunk)
           if (totalBytes > 0) {
             const pct = Math.round((downloadedBytes / totalBytes) * 100)
-            mainWindow.webContents.send('voice:model-progress', pct)
+            safeSend(mainWindow, 'voice:model-progress', pct)
           }
         })
 
@@ -88,6 +88,15 @@ function downloadModel(mainWindow: BrowserWindow): Promise<void> {
 
     makeRequest(MODEL_URL)
   })
+}
+
+/** Safely send IPC to renderer — avoids "Render frame was disposed" crash */
+function safeSend(win: BrowserWindow, channel: string, ...args: any[]) {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(channel, ...args)
+    }
+  } catch {}
 }
 
 export function registerVoiceHandlers(mainWindow: BrowserWindow) {
@@ -157,7 +166,7 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
 
     // Register new hotkey
     const success = globalShortcut.register(newSettings.voiceToggle, () => {
-      mainWindow.webContents.send('voice:hotkey-pressed')
+      safeSend(mainWindow, 'voice:hotkey-pressed')
       if (!mainWindow.isVisible()) mainWindow.show()
       mainWindow.focus()
     })
@@ -167,7 +176,7 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
       saveHotkeySettings({ voiceToggle: oldSettings.voiceToggle })
       try {
         globalShortcut.register(oldSettings.voiceToggle, () => {
-          mainWindow.webContents.send('voice:hotkey-pressed')
+          safeSend(mainWindow, 'voice:hotkey-pressed')
           if (!mainWindow.isVisible()) mainWindow.show()
           mainWindow.focus()
         })
@@ -183,7 +192,7 @@ export function registerVoiceHandlers(mainWindow: BrowserWindow) {
     try {
       const settings = getHotkeySettings()
       globalShortcut.register(settings.voiceToggle, () => {
-        mainWindow.webContents.send('voice:hotkey-pressed')
+        safeSend(mainWindow, 'voice:hotkey-pressed')
         if (!mainWindow.isVisible()) mainWindow.show()
         mainWindow.focus()
       })
