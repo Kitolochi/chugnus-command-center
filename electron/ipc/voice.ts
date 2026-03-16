@@ -7,7 +7,7 @@ import { execFileSync } from 'child_process'
 import { getHotkeySettings, saveHotkeySettings, getVoiceDeviceSettings, saveVoiceDeviceSettings } from '../database'
 
 let transcribeFn: ((opts: any) => Promise<any>) | null = null
-const MODEL_NAME = 'ggml-base.en.bin'
+const MODEL_NAME = 'ggml-medium.en.bin'
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`
 
 function getModelsDir(): string {
