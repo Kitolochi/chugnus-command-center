@@ -88,6 +88,11 @@ export async function stopRecording(): Promise<ArrayBuffer> {
   })
 }
 
+/** Cancel recording without producing output (used when queue pipeline interrupts always-listening) */
+export function cancelRecording(): void {
+  cleanup()
+}
+
 export function isRecordingActive(): boolean {
   return mediaRecorder !== null && mediaRecorder.state === 'recording'
 }

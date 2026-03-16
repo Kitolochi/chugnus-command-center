@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { Mic, MicOff, Volume2, Loader2, Download, SkipForward, Radio } from 'lucide-react'
 import { useVoiceStore } from '../../store/voiceStore'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
-import { startRecording, stopRecording } from '../../utils/audio-recorder'
+import { startRecording, stopRecording, cancelRecording } from '../../utils/audio-recorder'
 import { cancelSpeech, speakText } from '../../utils/tts'
 
 interface QueueItem {
@@ -189,10 +189,13 @@ export default function VoiceIndicator() {
   useEffect(() => {
     if (!voiceEnabled || !autoTtsEnabled) return
 
-    // Clean stale IDs
-    const currentIds = new Set(queue.map(i => i.processId))
+    // Clean seen IDs for processes no longer in awaiting_input state
+    // (so when they return to awaiting_input with new output, we pick them up)
+    const awaitingIds = new Set(
+      queue.filter(i => i.status === 'awaiting_input').map(i => i.processId)
+    )
     for (const id of seenIdsRef.current) {
-      if (!currentIds.has(id)) seenIdsRef.current.delete(id)
+      if (!awaitingIds.has(id)) seenIdsRef.current.delete(id)
     }
 
     // Find new awaiting_input items not yet seen
@@ -205,8 +208,14 @@ export default function VoiceIndicator() {
       speechQueueRef.current.push({ processId: item.processId, resultText: item.resultText! })
     }
 
-    // Kick off pipeline if idle
+    // Kick off pipeline — cancel always-listening recording if needed
     if (newItems.length > 0 && !processingRef.current) {
+      const store = useVoiceStore.getState()
+      if (store.isRecording && store.alwaysListening && !currentItemRef.current) {
+        // Interrupt idle always-listening recording so queue pipeline can speak
+        cancelRecording()
+        store.setRecording(false)
+      }
       processNext()
     }
   }, [queue, voiceEnabled, autoTtsEnabled, processNext])
