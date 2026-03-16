@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
-import { useVoiceStore } from '../../store/voiceStore'
 import { renderMarkdown } from '../../utils/markdown'
-import { speakText, cancelSpeech } from '../../utils/tts'
 import { Send, Trash2, FolderOpen, FileCode, Loader2, X, Image, FileText, Film, File } from 'lucide-react'
 import type { FileAttachment } from '../../types'
 
@@ -60,39 +58,6 @@ export default function CodexChatView() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [codexMessages.length, codexLoading])
-
-  // Auto-TTS: speak new assistant messages
-  const prevMsgCountRef = useRef(codexMessages.length)
-  const { autoTtsEnabled, setSpeaking, lastTranscription, setLastTranscription } = useVoiceStore()
-
-  useEffect(() => {
-    if (!autoTtsEnabled) return
-    if (codexMessages.length <= prevMsgCountRef.current) {
-      prevMsgCountRef.current = codexMessages.length
-      return
-    }
-    prevMsgCountRef.current = codexMessages.length
-
-    const last = codexMessages[codexMessages.length - 1]
-    if (last?.role === 'assistant') {
-      cancelSpeech()
-      setSpeaking(true)
-      speakText(last.content, () => setSpeaking(false), () => setSpeaking(false))
-    }
-  }, [codexMessages.length, autoTtsEnabled])
-
-  // Voice transcription injection: when lastTranscription changes, inject into chat
-  useEffect(() => {
-    if (!lastTranscription) return
-    const text = lastTranscription
-    setLastTranscription('')
-    setInput(text)
-    // Auto-submit after a tick so the input state updates
-    setTimeout(() => {
-      codexSend(text)
-      setInput('')
-    }, 50)
-  }, [lastTranscription])
 
   const handleSend = async () => {
     if (codexLoading) return
