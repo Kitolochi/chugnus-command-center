@@ -719,6 +719,13 @@ export interface ElectronAPI {
   readClipboard: () => string
   writeClipboard: (text: string) => void
 
+  // Voice
+  voiceTranscribe: (pcmBuffer: ArrayBuffer) => Promise<{ text: string; error?: string }>
+  voiceModelStatus: () => Promise<{ downloaded: boolean; ready: boolean }>
+  voiceDownloadModel: () => Promise<{ success: boolean; error?: string }>
+  onVoiceHotkey: (callback: () => void) => () => void
+  onVoiceModelProgress: (callback: (pct: number) => void) => () => void
+
   // Window controls
   closeWindow: () => void
   minimizeWindow: () => void

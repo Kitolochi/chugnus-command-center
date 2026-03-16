@@ -221,6 +221,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readClipboard: () => ipcRenderer.sendSync('read-clipboard'),
   writeClipboard: (text: string) => ipcRenderer.send('write-clipboard', text),
 
+  // Voice
+  voiceTranscribe: (pcmBuffer: ArrayBuffer) => ipcRenderer.invoke('voice:transcribe', Buffer.from(pcmBuffer)),
+  voiceModelStatus: () => ipcRenderer.invoke('voice:model-status'),
+  voiceDownloadModel: () => ipcRenderer.invoke('voice:download-model'),
+  onVoiceHotkey: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('voice:hotkey-pressed', handler)
+    return () => { ipcRenderer.removeListener('voice:hotkey-pressed', handler) }
+  },
+  onVoiceModelProgress: (callback: (pct: number) => void) => {
+    const handler = (_: any, pct: number) => callback(pct)
+    ipcRenderer.on('voice:model-progress', handler)
+    return () => { ipcRenderer.removeListener('voice:model-progress', handler) }
+  },
+
   // Window controls
   closeWindow: () => ipcRenderer.send('close-window'),
   minimizeWindow: () => ipcRenderer.send('minimize-window')

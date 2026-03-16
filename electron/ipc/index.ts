@@ -8,6 +8,7 @@ import { registerAgentHandlers } from './agents'
 import { registerAgentsViewHandlers } from './agentsview'
 import { registerCommandCenterHandlers } from './command-center'
 import { registerDualAgentHandlers } from './dual-agent'
+import { registerVoiceHandlers } from './voice'
 
 export function registerAllHandlers(mainWindow: BrowserWindow) {
   registerAIHandlers(mainWindow)
@@ -19,4 +20,5 @@ export function registerAllHandlers(mainWindow: BrowserWindow) {
   registerAgentsViewHandlers()
   registerCommandCenterHandlers(mainWindow)
   registerDualAgentHandlers(mainWindow)
+  registerVoiceHandlers(mainWindow)
 }
