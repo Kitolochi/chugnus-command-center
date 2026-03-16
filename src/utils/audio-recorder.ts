@@ -1,17 +1,14 @@
 const TARGET_SAMPLE_RATE = 16000
-const SILENCE_THRESHOLD = 0.01  // RMS below this = silence
-const SILENCE_CHUNKS = 8        // 8 × 250ms = 2s of silence to auto-stop
-const CHUNK_INTERVAL_MS = 250
+const MAX_RECORDING_MS = 12000  // auto-stop after 12 seconds
 
 let mediaStream: MediaStream | null = null
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
-let onSilenceCallback: (() => void) | null = null
-let silentChunkCount = 0
-let hasSpeechStarted = false
+let maxTimer: ReturnType<typeof setTimeout> | null = null
 
 /** Clean up all audio resources */
 function cleanup(): void {
+  if (maxTimer) { clearTimeout(maxTimer); maxTimer = null }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     try { mediaRecorder.stop() } catch {}
   }
@@ -21,37 +18,11 @@ function cleanup(): void {
     mediaStream = null
   }
   audioChunks = []
-  onSilenceCallback = null
-  silentChunkCount = 0
-  hasSpeechStarted = false
 }
 
-/** Check if an audio chunk contains silence by decoding and checking RMS */
-async function isChunkSilent(chunk: Blob): Promise<boolean> {
-  try {
-    const arrayBuffer = await chunk.arrayBuffer()
-    if (arrayBuffer.byteLength < 100) return true
-    const ctx = new AudioContext()
-    const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
-    await ctx.close()
-    const samples = audioBuffer.getChannelData(0)
-    let sum = 0
-    for (let i = 0; i < samples.length; i++) {
-      sum += samples[i] * samples[i]
-    }
-    const rms = Math.sqrt(sum / samples.length)
-    return rms < SILENCE_THRESHOLD
-  } catch {
-    return false // decode error = assume not silent
-  }
-}
-
-export async function startRecording(deviceId?: string, onSilence?: () => void): Promise<void> {
+export async function startRecording(deviceId?: string, onMaxDuration?: () => void): Promise<void> {
   cleanup()
   audioChunks = []
-  onSilenceCallback = onSilence || null
-  silentChunkCount = 0
-  hasSpeechStarted = false
 
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -63,33 +34,22 @@ export async function startRecording(deviceId?: string, onSilence?: () => void):
   })
 
   mediaRecorder = new MediaRecorder(mediaStream)
-  mediaRecorder.ondataavailable = async (e) => {
-    if (e.data.size > 0) {
-      audioChunks.push(e.data)
-
-      // Check silence on each chunk (offline decode, no live AudioContext)
-      if (onSilenceCallback) {
-        const silent = await isChunkSilent(e.data)
-        if (silent) {
-          // Only start counting silence after speech has been detected
-          if (hasSpeechStarted) {
-            silentChunkCount++
-            if (silentChunkCount >= SILENCE_CHUNKS) {
-              onSilenceCallback()
-            }
-          }
-        } else {
-          hasSpeechStarted = true
-          silentChunkCount = 0
-        }
-      }
-    }
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) audioChunks.push(e.data)
   }
-  mediaRecorder.start(CHUNK_INTERVAL_MS)
+  mediaRecorder.start(250)
+
+  // Auto-stop after max duration
+  if (onMaxDuration) {
+    maxTimer = setTimeout(() => {
+      maxTimer = null
+      onMaxDuration()
+    }, MAX_RECORDING_MS)
+  }
 }
 
 export async function stopRecording(): Promise<ArrayBuffer> {
-  onSilenceCallback = null // prevent double-fire from silence detection
+  if (maxTimer) { clearTimeout(maxTimer); maxTimer = null }
 
   return new Promise((resolve, reject) => {
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {

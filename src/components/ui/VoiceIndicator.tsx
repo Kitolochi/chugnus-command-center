@@ -13,7 +13,7 @@ interface QueueItem {
 export default function VoiceIndicator() {
   const {
     isRecording, isTranscribing, isSpeaking, voiceEnabled, modelReady,
-    modelDownloading, modelProgress, inputDeviceId,
+    modelDownloading, modelProgress, inputDeviceId, lastTranscription,
     setRecording, setTranscribing, setSpeaking, setModelReady, setModelDownloading, setModelProgress,
     setLastTranscription, toggleVoice, setInputDeviceId, setOutputDeviceId,
   } = useVoiceStore()
@@ -36,7 +36,7 @@ export default function VoiceIndicator() {
     }).catch(() => {})
   }, [])
 
-  // --- Core pipeline: speak → record → transcribe → respond → next ---
+  // --- Core pipeline: speak → delay → record → transcribe → respond → next ---
   const processNext = useCallback(async () => {
     if (processingRef.current) return
     if (speechQueueRef.current.length === 0) return
@@ -66,7 +66,10 @@ export default function VoiceIndicator() {
       )
     })
 
-    // 3. After speech ends, auto-start recording (if still enabled and not skipped)
+    // 3. Delay after speech so mic doesn't pick up TTS echo
+    await new Promise(r => setTimeout(r, 800))
+
+    // 4. Auto-start recording (if still enabled)
     const storeNow = useVoiceStore.getState()
     if (!storeNow.voiceEnabled || !storeNow.modelReady) {
       currentItemRef.current = null
@@ -94,28 +97,32 @@ export default function VoiceIndicator() {
     try {
       const pcmBuffer = await stopRecording()
       const result = await window.electronAPI.voiceTranscribe(pcmBuffer)
+      setLastTranscription(result.text || '(no speech detected)')
       if (result.text && currentItemRef.current) {
-        setLastTranscription(result.text)
         useCommandCenterStore.getState().respond(currentItemRef.current.processId, result.text)
       }
+      // If empty transcription, don't loop — just stop the pipeline for this item
     } catch (err) {
       console.error('[voice] Transcription failed:', err)
+      setLastTranscription('(transcription error)')
     } finally {
       setTranscribing(false)
       currentItemRef.current = null
       processingRef.current = false
-      setTimeout(() => processNext(), 300)
+      // Only continue to next item if there are more queued
+      if (speechQueueRef.current.length > 0) {
+        setTimeout(() => processNext(), 500)
+      }
     }
   }, [setRecording, setTranscribing, setLastTranscription, processNext])
 
-  // Keep ref in sync so silence callback always calls latest version
+  // Keep ref in sync so max-duration callback always calls latest version
   finishRef.current = finishRecordingAndRespond
 
   // --- Skip dialogue: cancel current speech, jump to recording ---
   const skipDialogue = useCallback(() => {
     cancelSpeech()
     setSpeaking(false)
-    // The promise in processNext resolves via onend/onerror, advancing to recording
   }, [setSpeaking])
 
   // Listen for hotkey from main process
@@ -158,7 +165,7 @@ export default function VoiceIndicator() {
 
   // --- Effect A: Detect new awaiting_input items → enqueue ---
   const queue = useCommandCenterStore(s => s.queue)
-  const { autoTtsEnabled, lastTranscription } = useVoiceStore()
+  const { autoTtsEnabled } = useVoiceStore()
 
   useEffect(() => {
     if (!voiceEnabled || !autoTtsEnabled) return
@@ -187,8 +194,7 @@ export default function VoiceIndicator() {
 
   // --- Effect B: Manual transcription response (outside queue flow) ---
   useEffect(() => {
-    if (!lastTranscription) return
-    // Only auto-respond if we're NOT in the queue pipeline (currentItemRef handles that)
+    if (!lastTranscription || lastTranscription.startsWith('(')) return
     if (currentItemRef.current) return
     const awaitingItem = queue.find(i => i.status === 'awaiting_input')
     if (!awaitingItem) return
@@ -252,40 +258,53 @@ export default function VoiceIndicator() {
 
   const queueCount = speechQueueRef.current.length + (currentItemRef.current ? 1 : 0)
 
+  // Show last transcription briefly
+  const showTranscription = lastTranscription && !isRecording && !isSpeaking
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
-      {/* Skip button — visible while speaking */}
-      {isSpeaking && (
-        <button
-          onClick={skipDialogue}
-          className="flex items-center gap-1 px-2 py-1.5 rounded-full border border-white/10 bg-surface-3 text-white/40 hover:text-white/70 hover:border-white/20 transition-all text-[10px] font-medium"
-          title="Skip dialogue (or press voice hotkey)"
-        >
-          <SkipForward size={12} />
-          <span>Skip</span>
-        </button>
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-1.5">
+      {/* Transcription feedback */}
+      {showTranscription && (
+        <div className="max-w-[280px] px-2.5 py-1.5 rounded-lg bg-surface-3 border border-white/10 text-[10px] text-white/60 leading-relaxed animate-fade-in">
+          <span className="text-white/30 mr-1">You said:</span>
+          {lastTranscription}
+        </div>
       )}
 
-      <button
-        onClick={() => {
-          if (isSpeaking) {
-            handleStopSpeaking()
-          } else if (!modelReady && !modelDownloading) {
-            handleDownloadModel()
-          } else {
-            toggleVoice()
-          }
-        }}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/10 ${bgColor} ${color} hover:border-white/20 transition-all text-[10px] font-medium`}
-        title={isSpeaking ? 'Stop speaking' : !modelReady ? 'Download voice model' : 'Toggle voice (Ctrl+Shift+Space)'}
-      >
-        {pulse && <span className="w-1.5 h-1.5 rounded-full bg-accent-red animate-pulse" />}
-        {icon}
-        <span>{label}</span>
-        {queueCount > 1 && (
-          <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/10 text-[8px]">{queueCount}</span>
+      <div className="flex items-center gap-2">
+        {/* Skip button — visible while speaking */}
+        {isSpeaking && (
+          <button
+            onClick={skipDialogue}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-full border border-white/10 bg-surface-3 text-white/40 hover:text-white/70 hover:border-white/20 transition-all text-[10px] font-medium"
+            title="Skip dialogue (or press voice hotkey)"
+          >
+            <SkipForward size={12} />
+            <span>Skip</span>
+          </button>
         )}
-      </button>
+
+        <button
+          onClick={() => {
+            if (isSpeaking) {
+              handleStopSpeaking()
+            } else if (!modelReady && !modelDownloading) {
+              handleDownloadModel()
+            } else {
+              toggleVoice()
+            }
+          }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/10 ${bgColor} ${color} hover:border-white/20 transition-all text-[10px] font-medium`}
+          title={isSpeaking ? 'Stop speaking' : !modelReady ? 'Download voice model' : 'Toggle voice (Ctrl+Shift+Space)'}
+        >
+          {pulse && <span className="w-1.5 h-1.5 rounded-full bg-accent-red animate-pulse" />}
+          {icon}
+          <span>{label}</span>
+          {queueCount > 1 && (
+            <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/10 text-[8px]">{queueCount}</span>
+          )}
+        </button>
+      </div>
     </div>
   )
 }
