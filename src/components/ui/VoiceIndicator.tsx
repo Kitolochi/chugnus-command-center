@@ -23,6 +23,7 @@ export default function VoiceIndicator() {
   const seenIdsRef = useRef<Set<string>>(new Set())
   const currentItemRef = useRef<QueueItem | null>(null)
   const processingRef = useRef(false)
+  const finishRef = useRef<() => Promise<void>>(async () => {})
 
   // Check model status + hydrate device settings on mount
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function VoiceIndicator() {
     }
 
     try {
-      await startRecording(storeNow.inputDeviceId || undefined)
+      await startRecording(storeNow.inputDeviceId || undefined, () => finishRef.current())
       setRecording(true)
     } catch (err) {
       console.error('[voice-queue] Failed to start recording:', err)
@@ -83,12 +84,11 @@ export default function VoiceIndicator() {
       processingRef.current = false
       processNext()
     }
-    // Recording started — pipeline continues in hotkey handler (stop recording → transcribe → respond)
-    // processNext will be called again after the response is sent
   }, [setSpeaking, setRecording])
 
   // --- Finish current pipeline step: transcribe, respond, advance ---
   const finishRecordingAndRespond = useCallback(async () => {
+    if (!useVoiceStore.getState().isRecording) return // guard against double-fire
     setRecording(false)
     setTranscribing(true)
     try {
@@ -96,7 +96,6 @@ export default function VoiceIndicator() {
       const result = await window.electronAPI.voiceTranscribe(pcmBuffer)
       if (result.text && currentItemRef.current) {
         setLastTranscription(result.text)
-        // Respond to the current awaiting item
         useCommandCenterStore.getState().respond(currentItemRef.current.processId, result.text)
       }
     } catch (err) {
@@ -105,10 +104,12 @@ export default function VoiceIndicator() {
       setTranscribing(false)
       currentItemRef.current = null
       processingRef.current = false
-      // Small delay then process next item
       setTimeout(() => processNext(), 300)
     }
   }, [setRecording, setTranscribing, setLastTranscription, processNext])
+
+  // Keep ref in sync so silence callback always calls latest version
+  finishRef.current = finishRecordingAndRespond
 
   // --- Skip dialogue: cancel current speech, jump to recording ---
   const skipDialogue = useCallback(() => {
@@ -138,7 +139,7 @@ export default function VoiceIndicator() {
           handleDownloadModel()
           return
         }
-        await startRecording(inputDeviceId || undefined)
+        await startRecording(inputDeviceId || undefined, () => finishRef.current())
         setRecording(true)
       } catch (err) {
         console.error('[voice] Hotkey handler error:', err)

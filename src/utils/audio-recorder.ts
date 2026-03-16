@@ -1,26 +1,40 @@
 const TARGET_SAMPLE_RATE = 16000
+const SILENCE_THRESHOLD = 0.015  // RMS below this = silence
+const SILENCE_TIMEOUT_MS = 2000  // auto-stop after 2s of silence
+const CHECK_INTERVAL_MS = 150    // how often to check for silence
 
 let mediaStream: MediaStream | null = null
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
+let silenceTimer: ReturnType<typeof setInterval> | null = null
+let audioContext: AudioContext | null = null
+let analyser: AnalyserNode | null = null
+let onSilenceCallback: (() => void) | null = null
 
 /** Clean up all audio resources */
 function cleanup(): void {
+  if (silenceTimer) { clearInterval(silenceTimer); silenceTimer = null }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     try { mediaRecorder.stop() } catch {}
   }
   mediaRecorder = null
+  if (audioContext && audioContext.state !== 'closed') {
+    try { audioContext.close() } catch {}
+  }
+  audioContext = null
+  analyser = null
   if (mediaStream) {
     mediaStream.getTracks().forEach((t) => t.stop())
     mediaStream = null
   }
   audioChunks = []
+  onSilenceCallback = null
 }
 
-export async function startRecording(deviceId?: string): Promise<void> {
-  // Always clean up previous recording first
+export async function startRecording(deviceId?: string, onSilence?: () => void): Promise<void> {
   cleanup()
   audioChunks = []
+  onSilenceCallback = onSilence || null
 
   mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -31,14 +45,53 @@ export async function startRecording(deviceId?: string): Promise<void> {
     },
   })
 
+  // Set up MediaRecorder for capturing audio data
   mediaRecorder = new MediaRecorder(mediaStream)
   mediaRecorder.ondataavailable = (e) => {
     if (e.data.size > 0) audioChunks.push(e.data)
   }
-  mediaRecorder.start(250) // collect chunks every 250ms
+  mediaRecorder.start(250)
+
+  // Set up AnalyserNode for silence detection (read-only, won't crash renderer)
+  audioContext = new AudioContext()
+  const source = audioContext.createMediaStreamSource(mediaStream)
+  analyser = audioContext.createAnalyser()
+  analyser.fftSize = 2048
+  source.connect(analyser)
+
+  // Monitor silence
+  let silentSince: number | null = null
+  const dataArray = new Float32Array(analyser.fftSize)
+
+  silenceTimer = setInterval(() => {
+    if (!analyser) return
+    analyser.getFloatTimeDomainData(dataArray)
+
+    // Calculate RMS
+    let sum = 0
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i] * dataArray[i]
+    }
+    const rms = Math.sqrt(sum / dataArray.length)
+
+    if (rms < SILENCE_THRESHOLD) {
+      if (!silentSince) silentSince = Date.now()
+      else if (Date.now() - silentSince >= SILENCE_TIMEOUT_MS) {
+        // 2s of silence — fire callback
+        if (onSilenceCallback) onSilenceCallback()
+        silentSince = null
+      }
+    } else {
+      silentSince = null
+    }
+  }, CHECK_INTERVAL_MS)
 }
 
 export async function stopRecording(): Promise<ArrayBuffer> {
+  // Stop silence monitoring immediately
+  if (silenceTimer) { clearInterval(silenceTimer); silenceTimer = null }
+  onSilenceCallback = null
+
   return new Promise((resolve, reject) => {
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {
       cleanup()
@@ -51,12 +104,11 @@ export async function stopRecording(): Promise<ArrayBuffer> {
         const blob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
         const arrayBuffer = await blob.arrayBuffer()
 
-        // Decode audio blob to PCM using OfflineAudioContext
-        const audioCtx = new AudioContext()
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
-        await audioCtx.close()
+        // Decode audio blob to PCM using AudioContext
+        const decodeCtx = new AudioContext()
+        const audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer)
+        await decodeCtx.close()
 
-        // Get raw PCM float data (mono, channel 0)
         const rawPcm = audioBuffer.getChannelData(0)
         const nativeSampleRate = audioBuffer.sampleRate
 
@@ -79,7 +131,6 @@ export async function stopRecording(): Promise<ArrayBuffer> {
     }
 
     mediaRecorder.stop()
-    // Stop tracks immediately so the mic indicator turns off
     if (mediaStream) {
       mediaStream.getTracks().forEach((t) => t.stop())
       mediaStream = null
