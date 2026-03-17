@@ -11,11 +11,11 @@ interface DeviceInfo {
 }
 
 export default function VoiceDeviceSettings() {
-  const [settings, setSettings] = useState<VoiceDeviceSettingsType>({ inputDeviceId: '', outputDeviceId: '' })
+  const [settings, setSettings] = useState<VoiceDeviceSettingsType>({ inputDeviceId: '', outputDeviceId: '', ttsRate: 1.5 })
   const [inputs, setInputs] = useState<DeviceInfo[]>([])
   const [outputs, setOutputs] = useState<DeviceInfo[]>([])
   const [loading, setLoading] = useState(true)
-  const { setInputDeviceId, setOutputDeviceId } = useVoiceStore()
+  const { setInputDeviceId, setOutputDeviceId, ttsRate, setTtsRate } = useVoiceStore()
 
   const enumerateDevices = useCallback(async () => {
     try {
@@ -96,6 +96,32 @@ export default function VoiceDeviceSettings() {
             ))}
           </select>
           <p className="text-[8px] text-muted/40 mt-1">TTS output always uses system default — Web Speech API limitation</p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[9px] uppercase tracking-wider text-muted/60 font-medium">Speech Speed</label>
+            <span className="text-[9px] text-white/50 font-mono">{ttsRate.toFixed(1)}x</span>
+          </div>
+          <input
+            type="range"
+            min="0.5"
+            max="3"
+            step="0.1"
+            value={ttsRate}
+            onChange={async (e) => {
+              const rate = parseFloat(e.target.value)
+              setTtsRate(rate)
+              const updated = await window.electronAPI.saveVoiceDeviceSettings({ ttsRate: rate })
+              setSettings(updated)
+            }}
+            className="w-full h-1 bg-surface-2 rounded-lg appearance-none cursor-pointer accent-accent-blue"
+          />
+          <div className="flex justify-between text-[7px] text-muted/30 mt-0.5">
+            <span>0.5x</span>
+            <span>1.5x</span>
+            <span>3.0x</span>
+          </div>
         </div>
       </div>
     </div>

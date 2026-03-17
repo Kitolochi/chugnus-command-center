@@ -34,6 +34,7 @@ export default function VoiceIndicator() {
     window.electronAPI.getVoiceDeviceSettings().then((settings) => {
       setInputDeviceId(settings.inputDeviceId)
       setOutputDeviceId(settings.outputDeviceId)
+      if (settings.ttsRate) useVoiceStore.getState().setTtsRate(settings.ttsRate)
     }).catch(() => {})
   }, [])
 
@@ -73,17 +74,19 @@ export default function VoiceIndicator() {
     }
 
     // 2. Speak — wait for completion or skip
+    const rate = useVoiceStore.getState().ttsRate
     setSpeaking(true)
     await new Promise<void>((resolve) => {
       speakText(
         summary,
         () => { setSpeaking(false); resolve() },
         () => { setSpeaking(false); resolve() },
+        rate,
       )
     })
 
-    // 3. Delay after speech so mic doesn't pick up TTS echo
-    await new Promise(r => setTimeout(r, 800))
+    // 3. Brief delay after speech so mic doesn't pick up TTS echo
+    await new Promise(r => setTimeout(r, 400))
 
     // 4. Auto-start recording (if still enabled)
     const started = await beginRecording()
@@ -115,10 +118,9 @@ export default function VoiceIndicator() {
       processingRef.current = false
       // Continue to next queue item if any
       if (speechQueueRef.current.length > 0) {
-        setTimeout(() => processNext(), 500)
+        setTimeout(() => processNext(), 200)
       } else if (useVoiceStore.getState().alwaysListening) {
-        // Always-listening: restart recording after a brief pause
-        setTimeout(() => beginRecording(), 300)
+        setTimeout(() => beginRecording(), 150)
       }
     }
   }, [setRecording, setTranscribing, setLastTranscription, processNext, beginRecording])

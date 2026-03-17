@@ -7,6 +7,7 @@ export interface HotkeySettings {
 export interface VoiceDeviceSettings {
   inputDeviceId: string
   outputDeviceId: string
+  ttsRate: number
 }
 
 export type LLMProvider = 'claude' | 'gemini' | 'groq' | 'openrouter' | 'chatgpt' | 'claudeProxy'

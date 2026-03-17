@@ -266,6 +266,7 @@ export interface HotkeySettings {
 export interface VoiceDeviceSettings {
   inputDeviceId: string   // '' = system default
   outputDeviceId: string  // '' = system default
+  ttsRate: number         // 0.5–3.0, default 1.5
 }
 
 export interface LLMSettings {
@@ -1172,7 +1173,12 @@ export function initDatabase(): Database {
 
   // Initialize voiceDeviceSettings if missing
   if (!(db as any).voiceDeviceSettings) {
-    db.voiceDeviceSettings = { inputDeviceId: '', outputDeviceId: '' }
+    db.voiceDeviceSettings = { inputDeviceId: '', outputDeviceId: '', ttsRate: 1.5 }
+    saveDatabase()
+  }
+  // Migrate: add ttsRate if missing
+  if (db.voiceDeviceSettings.ttsRate === undefined) {
+    db.voiceDeviceSettings.ttsRate = 1.5
     saveDatabase()
   }
 
@@ -2179,6 +2185,7 @@ export function getVoiceDeviceSettings(): VoiceDeviceSettings {
 export function saveVoiceDeviceSettings(updates: Partial<VoiceDeviceSettings>): VoiceDeviceSettings {
   if (updates.inputDeviceId !== undefined) db.voiceDeviceSettings.inputDeviceId = updates.inputDeviceId
   if (updates.outputDeviceId !== undefined) db.voiceDeviceSettings.outputDeviceId = updates.outputDeviceId
+  if (updates.ttsRate !== undefined) db.voiceDeviceSettings.ttsRate = updates.ttsRate
   saveDatabase()
   return db.voiceDeviceSettings
 }

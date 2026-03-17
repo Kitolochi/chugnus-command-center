@@ -26,11 +26,12 @@ export function stripMarkdownForSpeech(text: string): string {
 export function speakText(
   text: string,
   onEnd?: () => void,
-  onError?: (err: string) => void
+  onError?: (err: string) => void,
+  rate?: number
 ): SpeechSynthesisUtterance {
   const cleaned = stripMarkdownForSpeech(text)
   const utterance = new SpeechSynthesisUtterance(cleaned)
-  utterance.rate = 1.5
+  utterance.rate = rate ?? 1.5
   utterance.pitch = 1.0
   if (onEnd) utterance.onend = () => onEnd()
   if (onError) utterance.onerror = (e) => onError(e.error)
