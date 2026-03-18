@@ -54,6 +54,7 @@ const MAX_RESULT_TEXT = 2000
 
 const processes = new Map<string, ManagedProcess>()
 let mainWindow: BrowserWindow | null = null
+let rendererReady = false
 
 // --- Helpers ---
 
@@ -68,13 +69,31 @@ function hashColor(str: string): string {
 
 /** Send lightweight queue (no fullLog) to renderer to keep IPC small */
 function notifyRenderer() {
-  mainWindow?.webContents.send('cc:queue-update', getLightQueue())
+  if (!rendererReady || !mainWindow) return
+  try {
+    mainWindow.webContents.send('cc:queue-update', getLightQueue())
+  } catch {
+    rendererReady = false
+  }
 }
 
 // --- Public API ---
 
 export function initCommandCenter(win: BrowserWindow) {
   mainWindow = win
+  rendererReady = false
+
+  // Track when the renderer page is actually ready to receive IPC
+  win.webContents.on('did-finish-load', () => { rendererReady = true })
+  win.webContents.on('did-start-navigation', () => { rendererReady = false })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    rendererReady = false
+    console.error('[cc] Renderer process gone:', details.reason)
+    // Auto-reload on crash so the user doesn't get a permanent blank screen
+    setTimeout(() => {
+      try { win.webContents.reload() } catch {}
+    }, 1000)
+  })
 }
 
 /** Lightweight queue for IPC — strips fullLog to keep payloads small */

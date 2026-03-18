@@ -15,6 +15,15 @@ import { shutdownAllProcesses } from './command-center'
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 
+/** Safely send IPC to renderer — avoids "Render frame was disposed" crash */
+function safeSend(channel: string, ...args: any[]) {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send(channel, ...args)
+    }
+  } catch {}
+}
+
 // --- Cross-platform terminal launcher helper ---
 function launchInExternalTerminal(opts: {
   prompt: string
@@ -205,7 +214,7 @@ app.whenReady().then(() => {
     try {
       const agentRuns = runDueAgentHeartbeats(launchInExternalTerminal)
       if (agentRuns.length > 0) {
-        mainWindow?.webContents.send('agents-updated')
+        safeSend('agents-updated')
       }
     } catch (e) { console.error('Agent heartbeat error:', e) }
   }, 60 * 1000)
@@ -214,7 +223,7 @@ app.whenReady().then(() => {
   setInterval(async () => {
     try {
       const changed = await pollAgentSessions()
-      if (changed) mainWindow?.webContents.send('agents-updated')
+      if (changed) safeSend('agents-updated')
     } catch (e) { console.error('Agent session poll error:', e) }
   }, 30 * 1000)
 
@@ -223,7 +232,7 @@ app.whenReady().then(() => {
 
   // Start memory health monitor (check every 5 minutes, send updates on status change)
   startHealthMonitor(5 * 60 * 1000, (health) => {
-    mainWindow?.webContents.send('memory-health-update', health)
+    safeSend('memory-health-update', health)
   })
 
   // Background: pre-warm embedding model after 5s, then load existing vector index
@@ -231,7 +240,7 @@ app.whenReady().then(() => {
   setTimeout(async () => {
     try {
       await initEmbeddingModel((progress) => {
-        mainWindow?.webContents.send('embedding-progress', progress)
+        safeSend('embedding-progress', progress)
       })
       const embStatus = getEmbeddingStatus()
       if (embStatus.ready) {
