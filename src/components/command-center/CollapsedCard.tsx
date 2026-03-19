@@ -31,7 +31,7 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
   const isStale = item.status === 'working' && idleMinutes >= 5
 
   const statusText = {
-    working: isStale ? `Idle ${idleMinutes}m` : 'Working...',
+    working: isStale ? `Quiet ${idleMinutes}m` : 'Working...',
     awaiting_input: 'Awaiting input',
     errored: 'Error',
   }[item.status]
@@ -79,9 +79,9 @@ export default function CollapsedCard({ item, onFocus }: { item: CCQueueItem; on
           }`}>{statusText}</span>
         </div>
         </div>
-        {(item.status === 'awaiting_input' || item.status === 'errored') && item.resultText && (
-          <p className="text-[10px] text-white/50 mt-1.5 line-clamp-2 leading-relaxed">
-            {item.resultText.slice(0, 200)}
+        {item.resultText && (
+          <p className="text-[10px] text-white/50 mt-1.5 line-clamp-1 leading-relaxed">
+            {item.resultText.split(/[.!?\n]/)[0].slice(0, 150)}
           </p>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { Button, EmptyState } from '../ui'
 import { Layers, Plus, RotateCcw } from 'lucide-react'
@@ -19,6 +19,7 @@ export default function CommandCenter() {
   const [restoreDismissed, setRestoreDismissed] = useState(false)
   const [crashedIds, setCrashedIds] = useState<string[]>([])
   const [dailyPrompts, setDailyPrompts] = useState(0)
+  const [userPinned, setUserPinned] = useState(false)
 
   const refreshDailyPrompts = () => {
     window.electronAPI.ccGetDailyPrompts().then(d => setDailyPrompts(d.count))
@@ -36,6 +37,20 @@ export default function CommandCenter() {
     })
     return unsub
   }, [])
+
+  // Clear pin when pinned item leaves queue or user responded (was awaiting, now working)
+  const prevStatusRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!userPinned || !focusId) return
+    const pinned = queue.find(q => q.processId === focusId)
+    if (!pinned) {
+      setUserPinned(false)
+    } else if (prevStatusRef.current === 'awaiting_input' && pinned.status === 'working') {
+      // User just responded — release pin so next awaiting card auto-promotes
+      setUserPinned(false)
+    }
+    prevStatusRef.current = pinned?.status ?? null
+  }, [queue, focusId, userPinned])
 
   // Only show sessions that were marked crashed during THIS startup
   const crashedSessions = restoreDismissed ? [] : history.filter(e => crashedIds.includes(e.id))
@@ -62,11 +77,10 @@ export default function CommandCenter() {
     return a.updatedAt - b.updatedAt
   })
 
-  // Honor focusId only if that item needs attention (awaiting/errored) or nothing else does
+  // Honor focusId — user clicks always win; don't interrupt current awaiting_input
   const focusedItem = focusId ? sorted.find(s => s.processId === focusId) : null
-  const topNeedsAttention = sorted[0]?.status === 'awaiting_input' || sorted[0]?.status === 'errored'
-  const focusNeedsAttention = focusedItem?.status === 'awaiting_input' || focusedItem?.status === 'errored'
-  const focusItem = (focusedItem && (focusNeedsAttention || !topNeedsAttention)) ? focusedItem : sorted[0]
+  const focusStillAwaiting = focusedItem?.status === 'awaiting_input' || focusedItem?.status === 'errored'
+  const focusItem = (focusedItem && (userPinned || focusStillAwaiting)) ? focusedItem : sorted[0]
   const collapsed = sorted.filter(s => s.processId !== focusItem?.processId)
 
   return (
@@ -187,7 +201,7 @@ export default function CommandCenter() {
           <div className="space-y-2">
             {focusItem && <FocusCard item={focusItem} />}
             {collapsed.map(item => (
-              <CollapsedCard key={item.processId} item={item} onFocus={() => setFocusId(item.processId)} />
+              <CollapsedCard key={item.processId} item={item} onFocus={() => { setFocusId(item.processId); setUserPinned(true) }} />
             ))}
           </div>
         ) : null}

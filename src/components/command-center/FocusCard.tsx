@@ -239,8 +239,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     : (item.resultText || item.prompt)
 
   // Truncate display
-  const truncated = displayText && displayText.length > 500
-  const shownText = truncated ? displayText.slice(0, 500) : displayText
+  const truncated = false
+  const shownText = displayText
   const [showFullText, setShowFullText] = useState(false)
 
   // Estimate total message size (text content + base64 images)
