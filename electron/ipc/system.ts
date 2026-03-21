@@ -292,13 +292,17 @@ export function registerSystemHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('upload-context-files', async (_, targetFolder: string) => {
     const memoryDir = getMemoryDir()
+    const destDir = targetFolder ? path.join(memoryDir, targetFolder) : memoryDir
+    const resolvedDest = path.resolve(destDir)
+    if (!resolvedDest.startsWith(path.resolve(memoryDir))) {
+      throw new Error('Path traversal detected')
+    }
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       title: 'Upload files to context'
     })
     if (result.canceled || result.filePaths.length === 0) return []
     const uploaded: any[] = []
-    const destDir = targetFolder ? path.join(memoryDir, targetFolder) : memoryDir
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true })
     for (const srcPath of result.filePaths) {
       const fileName = path.basename(srcPath)

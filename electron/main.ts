@@ -1,6 +1,17 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, session } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
+
+const crashLog = path.join(os.tmpdir(), 'chugnus-crash.log')
+function logCrash(msg: string) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`
+  try { fs.appendFileSync(crashLog, line) } catch {}
+  console.log(msg)
+}
+process.on('uncaughtException', (err) => { logCrash(`UNCAUGHT: ${err.stack || err}`) })
+process.on('unhandledRejection', (reason) => { logCrash(`UNHANDLED: ${reason}`) })
+process.on('exit', (code) => { logCrash(`EXIT code=${code}`) })
 import { spawn } from 'child_process'
 import { initDatabase } from './database'
 import { initEmbeddingModel, getEmbeddingStatus } from './embeddings'
@@ -11,6 +22,8 @@ import { scaffoldDomainFolders } from './ipc/system'
 import { runDueAgentHeartbeats, pollAgentSessions, setLaunchFn } from './agents'
 import { setAgentLaunchFn } from './ipc/agents'
 import { shutdownAllProcesses } from './command-center'
+import { initSecrets, migrateSecretsFromDb } from './secrets'
+import { getPlaintextSecrets, clearPlaintextSecrets } from './database'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -193,12 +206,18 @@ app.whenReady().then(() => {
     })
   })
 
-  // Auto-grant microphone permission for voice commands
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(['media', 'clipboard-read', 'notifications'].includes(permission))
+  // Grant permissions only to our own app windows, not arbitrary web content
+  const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-read', 'notifications'])
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const requestUrl = webContents?.getURL() || ''
+    const isLocalContent = requestUrl.startsWith('file://') ||
+      (VITE_DEV_SERVER_URL && requestUrl.startsWith(VITE_DEV_SERVER_URL))
+    callback(isLocalContent && ALLOWED_PERMISSIONS.has(permission))
   })
 
   initDatabase()
+  initSecrets()
+  migrateSecretsFromDb(getPlaintextSecrets(), clearPlaintextSecrets)
   createWindow()
   createTray()
 

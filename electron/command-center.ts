@@ -6,6 +6,28 @@ import fs from 'fs'
 import { BrowserWindow } from 'electron'
 import { updateCCHistoryEntry, incrementDailyPrompts } from './database'
 
+// --- Claude binary resolution ---
+
+function resolveClaudeBinary(): string {
+  if (process.env.CLAUDE_BINARY) return process.env.CLAUDE_BINARY
+  const candidates = process.platform === 'win32'
+    ? [
+        path.join(os.homedir(), '.local', 'bin', 'claude.exe'),
+        path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+        path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude'),
+      ]
+    : [
+        path.join(os.homedir(), '.local', 'bin', 'claude'),
+        '/usr/local/bin/claude',
+        path.join(os.homedir(), '.npm-global', 'bin', 'claude'),
+      ]
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+  // Fall back to bare name and let PATH resolve it
+  return 'claude'
+}
+
 // --- Types ---
 
 export interface CCQueueItem {
@@ -211,8 +233,8 @@ export function launchProcess(opts: {
   if (opts.model) args.push('--model', opts.model)
   if (opts.maxBudget) args.push('--max-budget-usd', String(opts.maxBudget))
 
-  // Use full path to avoid shell: true buffering issues on Windows
-  const claudePath = path.join(os.homedir(), '.local', 'bin', 'claude.exe')
+  // Resolve claude binary by platform with fallback detection
+  const claudePath = resolveClaudeBinary()
   const proc = spawn(claudePath, args, {
     cwd: effectiveCwd,
     stdio: ['pipe', 'pipe', 'pipe'],

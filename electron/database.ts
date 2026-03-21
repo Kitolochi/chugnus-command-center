@@ -268,6 +268,12 @@ export interface LLMSettings {
   fastModel: string
 }
 
+export interface TelegramSettings {
+  botToken: string
+  authorizedChatId: string
+  enabled: boolean
+}
+
 export interface BankConnection {
   id: string
   provider: 'simplefin' | 'teller'
@@ -623,6 +629,7 @@ interface Database {
   memorySettings: MemorySettings
   welcomeDismissed: boolean
   llmSettings: LLMSettings
+  telegramSettings: TelegramSettings
   bankConnections: BankConnection[]
   bankAccounts: BankAccount[]
   bankTransactions: BankTransaction[]
@@ -1151,6 +1158,12 @@ export function initDatabase(): Database {
     saveDatabase()
   }
 
+  // Initialize telegram settings if missing
+  if (!(db as any).telegramSettings) {
+    db.telegramSettings = { botToken: '', authorizedChatId: '', enabled: false }
+    saveDatabase()
+  }
+
   // Reset weekly stats if new week
   checkWeeklyReset()
 
@@ -1494,20 +1507,44 @@ export function getRecentNotes(limit: number = 7): DailyNote[] {
 
 // Twitter settings
 export function getTwitterSettings(): TwitterSettings {
-  return db.twitter
+  const { getSecret } = require('./secrets')
+  return {
+    ...db.twitter,
+    bearerToken: getSecret('twitterBearerToken') || db.twitter.bearerToken || '',
+    apiKey: getSecret('twitterApiKey') || db.twitter.apiKey || '',
+    apiSecret: getSecret('twitterApiSecret') || db.twitter.apiSecret || '',
+    accessToken: getSecret('twitterAccessToken') || db.twitter.accessToken || '',
+    accessTokenSecret: getSecret('twitterAccessTokenSecret') || db.twitter.accessTokenSecret || '',
+  }
 }
 
 export function saveTwitterSettings(settings: Partial<TwitterSettings>): TwitterSettings {
-  if (settings.bearerToken !== undefined) db.twitter.bearerToken = settings.bearerToken
+  const { setSecret } = require('./secrets')
+  if (settings.bearerToken !== undefined) {
+    setSecret('twitterBearerToken', settings.bearerToken)
+    db.twitter.bearerToken = ''
+  }
   if (settings.username !== undefined) db.twitter.username = settings.username
   if (settings.userId !== undefined) db.twitter.userId = settings.userId
   if (settings.listIds !== undefined) db.twitter.listIds = settings.listIds
-  if (settings.apiKey !== undefined) db.twitter.apiKey = settings.apiKey
-  if (settings.apiSecret !== undefined) db.twitter.apiSecret = settings.apiSecret
-  if (settings.accessToken !== undefined) db.twitter.accessToken = settings.accessToken
-  if (settings.accessTokenSecret !== undefined) db.twitter.accessTokenSecret = settings.accessTokenSecret
+  if (settings.apiKey !== undefined) {
+    setSecret('twitterApiKey', settings.apiKey)
+    db.twitter.apiKey = ''
+  }
+  if (settings.apiSecret !== undefined) {
+    setSecret('twitterApiSecret', settings.apiSecret)
+    db.twitter.apiSecret = ''
+  }
+  if (settings.accessToken !== undefined) {
+    setSecret('twitterAccessToken', settings.accessToken)
+    db.twitter.accessToken = ''
+  }
+  if (settings.accessTokenSecret !== undefined) {
+    setSecret('twitterAccessTokenSecret', settings.accessTokenSecret)
+    db.twitter.accessTokenSecret = ''
+  }
   saveDatabase()
-  return db.twitter
+  return getTwitterSettings()
 }
 
 // RSS Feeds
@@ -1530,20 +1567,26 @@ export function removeRSSFeed(url: string): RSSFeed[] {
 }
 
 export function getClaudeApiKey(): string {
-  return db.claudeApiKey || ''
+  const { getSecret } = require('./secrets')
+  return getSecret('claudeApiKey') || db.claudeApiKey || ''
 }
 
 export function saveClaudeApiKey(key: string): void {
-  db.claudeApiKey = key
+  const { setSecret } = require('./secrets')
+  setSecret('claudeApiKey', key)
+  db.claudeApiKey = ''
   saveDatabase()
 }
 
 export function getTavilyApiKey(): string {
-  return db.tavilyApiKey || ''
+  const { getSecret } = require('./secrets')
+  return getSecret('tavilyApiKey') || db.tavilyApiKey || ''
 }
 
 export function saveTavilyApiKey(key: string): void {
-  db.tavilyApiKey = key
+  const { setSecret } = require('./secrets')
+  setSecret('tavilyApiKey', key)
+  db.tavilyApiKey = ''
   saveDatabase()
 }
 
@@ -2121,18 +2164,55 @@ export function saveMemorySettings(updates: Partial<MemorySettings>): MemorySett
 
 // LLM Settings
 export function getLLMSettings(): LLMSettings {
-  return db.llmSettings
+  const { getSecret } = require('./secrets')
+  return {
+    ...db.llmSettings,
+    geminiApiKey: getSecret('geminiApiKey') || db.llmSettings.geminiApiKey || '',
+    groqApiKey: getSecret('groqApiKey') || db.llmSettings.groqApiKey || '',
+    openrouterApiKey: getSecret('openrouterApiKey') || db.llmSettings.openrouterApiKey || '',
+  }
 }
 
 export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
+  const { setSecret } = require('./secrets')
   if (updates.provider !== undefined) db.llmSettings.provider = updates.provider
-  if (updates.geminiApiKey !== undefined) db.llmSettings.geminiApiKey = updates.geminiApiKey
-  if (updates.groqApiKey !== undefined) db.llmSettings.groqApiKey = updates.groqApiKey
-  if (updates.openrouterApiKey !== undefined) db.llmSettings.openrouterApiKey = updates.openrouterApiKey
+  if (updates.geminiApiKey !== undefined) {
+    setSecret('geminiApiKey', updates.geminiApiKey)
+    db.llmSettings.geminiApiKey = ''
+  }
+  if (updates.groqApiKey !== undefined) {
+    setSecret('groqApiKey', updates.groqApiKey)
+    db.llmSettings.groqApiKey = ''
+  }
+  if (updates.openrouterApiKey !== undefined) {
+    setSecret('openrouterApiKey', updates.openrouterApiKey)
+    db.llmSettings.openrouterApiKey = ''
+  }
   if (updates.primaryModel !== undefined) db.llmSettings.primaryModel = updates.primaryModel
   if (updates.fastModel !== undefined) db.llmSettings.fastModel = updates.fastModel
   saveDatabase()
-  return db.llmSettings
+  return getLLMSettings()
+}
+
+// Telegram Settings
+export function getTelegramSettings(): TelegramSettings {
+  const { getSecret } = require('./secrets')
+  return {
+    ...db.telegramSettings,
+    botToken: getSecret('telegramBotToken') || db.telegramSettings.botToken || '',
+  }
+}
+
+export function saveTelegramSettings(updates: Partial<TelegramSettings>): TelegramSettings {
+  const { setSecret } = require('./secrets')
+  if (updates.botToken !== undefined) {
+    setSecret('telegramBotToken', updates.botToken)
+    db.telegramSettings.botToken = ''
+  }
+  if (updates.authorizedChatId !== undefined) db.telegramSettings.authorizedChatId = updates.authorizedChatId
+  if (updates.enabled !== undefined) db.telegramSettings.enabled = updates.enabled
+  saveDatabase()
+  return getTelegramSettings()
 }
 
 // Welcome modal
@@ -3484,4 +3564,40 @@ export function getDailyPrompts(): { date: string; count: number } {
     saveDatabase()
   }
   return { ...db.dailyPrompts }
+}
+
+// --- Secrets migration helpers ---
+
+/** Extract all plaintext secret values from the DB for migration to encrypted storage */
+export function getPlaintextSecrets(): Record<string, string> {
+  const secrets: Record<string, string> = {}
+  if (db.claudeApiKey) secrets['claudeApiKey'] = db.claudeApiKey
+  if (db.tavilyApiKey) secrets['tavilyApiKey'] = db.tavilyApiKey
+  if (db.llmSettings?.geminiApiKey) secrets['geminiApiKey'] = db.llmSettings.geminiApiKey
+  if (db.llmSettings?.groqApiKey) secrets['groqApiKey'] = db.llmSettings.groqApiKey
+  if (db.llmSettings?.openrouterApiKey) secrets['openrouterApiKey'] = db.llmSettings.openrouterApiKey
+  if (db.twitter?.bearerToken) secrets['twitterBearerToken'] = db.twitter.bearerToken
+  if (db.twitter?.apiKey) secrets['twitterApiKey'] = db.twitter.apiKey
+  if (db.twitter?.apiSecret) secrets['twitterApiSecret'] = db.twitter.apiSecret
+  if (db.twitter?.accessToken) secrets['twitterAccessToken'] = db.twitter.accessToken
+  if (db.twitter?.accessTokenSecret) secrets['twitterAccessTokenSecret'] = db.twitter.accessTokenSecret
+  if (db.telegramSettings?.botToken) secrets['telegramBotToken'] = db.telegramSettings.botToken
+  return secrets
+}
+
+/** Clear migrated plaintext secrets from the DB */
+export function clearPlaintextSecrets(keys: string[]): void {
+  const keySet = new Set(keys)
+  if (keySet.has('claudeApiKey')) db.claudeApiKey = ''
+  if (keySet.has('tavilyApiKey')) db.tavilyApiKey = ''
+  if (keySet.has('geminiApiKey')) db.llmSettings.geminiApiKey = ''
+  if (keySet.has('groqApiKey')) db.llmSettings.groqApiKey = ''
+  if (keySet.has('openrouterApiKey')) db.llmSettings.openrouterApiKey = ''
+  if (keySet.has('twitterBearerToken')) db.twitter.bearerToken = ''
+  if (keySet.has('twitterApiKey')) db.twitter.apiKey = ''
+  if (keySet.has('twitterApiSecret')) db.twitter.apiSecret = ''
+  if (keySet.has('twitterAccessToken')) db.twitter.accessToken = ''
+  if (keySet.has('twitterAccessTokenSecret')) db.twitter.accessTokenSecret = ''
+  if (keySet.has('telegramBotToken')) db.telegramSettings.botToken = ''
+  saveDatabase()
 }
