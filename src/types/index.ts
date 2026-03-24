@@ -40,6 +40,33 @@ export interface GitHubRepoResult {
   updatedAt: string
 }
 
+// === Usage Coach Types ===
+
+export interface CoachTip {
+  id: string
+  category: 'workflow' | 'prompt' | 'strategic'
+  severity: 'info' | 'suggestion' | 'warning'
+  title: string
+  body: string
+  reference: string
+  sessionId: string
+  project: string
+  timestamp: string
+  dismissed: boolean
+  saved: boolean
+}
+
+export interface CoachDbState {
+  dayAccumulator: string
+  lastResetDate: string
+  enabled: boolean
+  globalTipsEmitted: string[]
+  sessions: Record<string, {
+    byteOffset: number
+    tipsEmitted: string[]
+  }>
+}
+
 // === Memory Types ===
 
 export interface Memory {
@@ -47,7 +74,7 @@ export interface Memory {
   title: string
   content: string
   topics: string[]
-  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual'
+  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual' | 'coach'
   sourceId: string | null
   sourcePreview: string
   importance: 1 | 2 | 3
@@ -722,6 +749,14 @@ export interface ElectronAPI {
   // Window controls
   closeWindow: () => void
   minimizeWindow: () => void
+
+  // Usage Coach
+  coachToggle: (enabled: boolean) => Promise<void>
+  coachSaveTip: (tip: CoachTip) => Promise<void>
+  coachClearDay: () => Promise<void>
+  onCoachTips: (callback: (tips: CoachTip[]) => void) => () => void
+  onCoachStatus: (callback: (data: { status: string; sessionCount: number }) => void) => () => void
+  onCoachDaySummary: (callback: (summary: string) => void) => () => void
 }
 
 declare global {

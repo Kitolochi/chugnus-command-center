@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import { app } from 'electron'
+import type { CoachDbState } from '../src/types'
 
 interface Task {
   id: number
@@ -236,7 +237,7 @@ interface Memory {
   title: string
   content: string
   topics: string[]
-  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual'
+  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual' | 'coach'
   sourceId: string | null
   sourcePreview: string
   importance: 1 | 2 | 3
@@ -659,6 +660,8 @@ interface Database {
   collabHistory: CollabHistoryEntry[]
   // Daily prompt counter
   dailyPrompts: { date: string; count: number }
+  // Usage Coach
+  coachState: CoachDbState
 }
 
 let db: Database
@@ -757,6 +760,16 @@ export function initDatabase(): Database {
       })
       const dupsRemoved = beforeDedup - db.bankTransactions.length
       if (dupsRemoved > 0) console.log(`[db] Removed ${dupsRemoved} duplicate bank transactions`)
+    }
+    // Auto-migrate: coachState
+    if (!db.coachState) {
+      db.coachState = {
+        dayAccumulator: '',
+        lastResetDate: '',
+        enabled: true,
+        globalTipsEmitted: [],
+        sessions: {},
+      }
     }
     saveDatabase()
     } // end: if data valid
@@ -1155,6 +1168,18 @@ export function initDatabase(): Database {
   // Initialize daily prompt counter if missing
   if (!(db as any).dailyPrompts) {
     db.dailyPrompts = { date: todayLocal(), count: 0 }
+    saveDatabase()
+  }
+
+  // Initialize coachState if missing
+  if (!(db as any).coachState) {
+    db.coachState = {
+      dayAccumulator: '',
+      lastResetDate: '',
+      enabled: true,
+      globalTipsEmitted: [],
+      sessions: {},
+    }
     saveDatabase()
   }
 
@@ -2160,6 +2185,34 @@ export function saveMemorySettings(updates: Partial<MemorySettings>): MemorySett
   if (updates.tokenBudget !== undefined) db.memorySettings.tokenBudget = updates.tokenBudget
   saveDatabase()
   return db.memorySettings
+}
+
+// Coach State
+export function getCoachState(): CoachDbState {
+  if (!db.coachState) {
+    db.coachState = {
+      dayAccumulator: '',
+      lastResetDate: '',
+      enabled: true,
+      globalTipsEmitted: [],
+      sessions: {},
+    }
+    saveDatabase()
+  }
+  return db.coachState
+}
+
+export function updateCoachState(updates: Partial<CoachDbState>): CoachDbState {
+  const defaults: CoachDbState = {
+    dayAccumulator: '',
+    lastResetDate: '',
+    enabled: true,
+    globalTipsEmitted: [],
+    sessions: {},
+  }
+  db.coachState = { ...(db.coachState || defaults), ...updates }
+  saveDatabase()
+  return db.coachState
 }
 
 // LLM Settings
