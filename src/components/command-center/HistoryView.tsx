@@ -101,7 +101,7 @@ function SessionRow({ session, expandedId, onExpand, onResume, loadingMessages, 
 }
 
 export default function HistoryView() {
-  const { history, historyFilter, projects, loadHistory, loadProjects, setHistoryFilter, launch, setActiveView } = useCommandCenterStore()
+  const { history, historyFilter, projects, selectedProject, loadHistory, loadProjects, setHistoryFilter, launch, setActiveView } = useCommandCenterStore()
   const [cliSessions, setCliSessions] = useState<CLISession[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandedMessages, setExpandedMessages] = useState<CLISessionMessage[]>([])
@@ -115,6 +115,12 @@ export default function HistoryView() {
     loadProjects()
     loadCliSessions()
   }, [])
+
+  useEffect(() => {
+    if (selectedProject && historyFilter !== selectedProject) {
+      setHistoryFilter(selectedProject)
+    }
+  }, [selectedProject])
 
   const loadCliSessions = async () => {
     const sessions = await window.electronAPI.getCliSessions()
@@ -206,18 +212,20 @@ export default function HistoryView() {
       )}
       {/* Filter + Tab toggle */}
       <div className="flex items-center gap-3 mb-3">
-        <select
-          value={historyFilter || ''}
-          onChange={e => setHistoryFilter(e.target.value || null)}
-          className="bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-1.5 text-[10px] text-white/70 focus:outline-none"
-        >
-          <option value="">All Projects</option>
-          {projects.map(p => (
-            <option key={p.path} value={p.path}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        {!selectedProject && (
+          <select
+            value={historyFilter || ''}
+            onChange={e => setHistoryFilter(e.target.value || null)}
+            className="bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-1.5 text-[10px] text-white/70 focus:outline-none"
+          >
+            <option value="">All Projects</option>
+            {projects.map(p => (
+              <option key={p.path} value={p.path}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           value={dateFilter}
           onChange={e => setDateFilter(e.target.value as any)}
