@@ -223,5 +223,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Window controls
   closeWindow: () => ipcRenderer.send('close-window'),
-  minimizeWindow: () => ipcRenderer.send('minimize-window')
+  minimizeWindow: () => ipcRenderer.send('minimize-window'),
+
+  // Usage Coach
+  coachToggle: (enabled: boolean) => ipcRenderer.invoke('coach:toggle', enabled),
+  coachSaveTip: (tip: any) => ipcRenderer.invoke('coach:save-tip', tip),
+  coachClearDay: () => ipcRenderer.invoke('coach:clear-day'),
+  onCoachTips: (callback: (tips: any[]) => void) => {
+    const handler = (_: any, tips: any[]) => callback(tips)
+    ipcRenderer.on('coach:tips', handler)
+    return () => { ipcRenderer.removeListener('coach:tips', handler) }
+  },
+  onCoachStatus: (callback: (data: { status: string; sessionCount: number }) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('coach:status', handler)
+    return () => { ipcRenderer.removeListener('coach:status', handler) }
+  },
+  onCoachDaySummary: (callback: (summary: string) => void) => {
+    const handler = (_: any, summary: string) => callback(summary)
+    ipcRenderer.on('coach:day-summary', handler)
+    return () => { ipcRenderer.removeListener('coach:day-summary', handler) }
+  }
 })

@@ -24,6 +24,7 @@ import { setAgentLaunchFn } from './ipc/agents'
 import { shutdownAllProcesses } from './command-center'
 import { initSecrets, migrateSecretsFromDb } from './secrets'
 import { getPlaintextSecrets, clearPlaintextSecrets } from './database'
+import { initCoach, destroyCoach } from './usage-coach'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -224,6 +225,9 @@ app.whenReady().then(() => {
   // Register all IPC handlers from modular files
   registerAllHandlers(mainWindow!)
 
+  // Initialize usage coach
+  initCoach(mainWindow!)
+
   // Wire up agent launch function (IPC handler + module-level for retries)
   setAgentLaunchFn(launchInExternalTerminal)
   setLaunchFn(launchInExternalTerminal)
@@ -272,6 +276,7 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
+  destroyCoach()
   shutdownAllProcesses()
   if (tray) {
     tray.destroy()
