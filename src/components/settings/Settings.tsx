@@ -1,5 +1,6 @@
 import AIProviderSettings from './AIProviderSettings'
 import ChatGPTSettings from './ChatGPTSettings'
+import CoachSettings from './CoachSettings'
 
 const SHORTCUTS = [
   { key: 'X', label: 'Command Center' },
@@ -20,6 +21,9 @@ export default function Settings() {
 
       {/* ChatGPT Account */}
       <ChatGPTSettings />
+
+      {/* Usage Coach */}
+      <CoachSettings />
 
       {/* Keyboard Shortcuts */}
       <div className="mb-6 animate-stagger-in" style={{ animationDelay: '120ms' }}>
