@@ -4,8 +4,8 @@ import { Button, Dialog } from '../ui'
 import { Rocket, FolderPlus, FolderOpen, X } from 'lucide-react'
 
 export default function LaunchCard() {
-  const { projects, launch, setLaunchOpen, loadProjects } = useCommandCenterStore()
-  const [projectPath, setProjectPath] = useState('')
+  const { projects, launch, setLaunchOpen, loadProjects, launchPrefilledProject, setLaunchPrefilledProject } = useCommandCenterStore()
+  const [projectPath, setProjectPath] = useState(launchPrefilledProject || '')
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState('sonnet')
   const [maxBudget, setMaxBudget] = useState('')
@@ -13,6 +13,10 @@ export default function LaunchCard() {
   const [newName, setNewName] = useState('')
 
   useEffect(() => { loadProjects() }, [])
+
+  useEffect(() => {
+    return () => { setLaunchPrefilledProject(null) }
+  }, [setLaunchPrefilledProject])
 
   const handleBrowse = async () => {
     const result = await window.electronAPI.ccBrowseProject()
@@ -40,6 +44,11 @@ export default function LaunchCard() {
     return 'sonnet'
   }, [])
 
+  const handleClose = () => {
+    setLaunchPrefilledProject(null)
+    setLaunchOpen(false)
+  }
+
   const handleLaunch = () => {
     if (!projectPath || !prompt.trim()) return
     const modelMap: Record<string, string> = {
@@ -58,13 +67,13 @@ export default function LaunchCard() {
   const inputClass = 'w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40'
 
   return (
-    <Dialog open onClose={() => setLaunchOpen(false)}>
+    <Dialog open onClose={handleClose}>
       <div className="bg-surface-1 border border-white/[0.08] rounded-xl w-[440px] max-w-[90vw] p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-sm font-semibold text-white/90">New Task</h2>
           <button
-            onClick={() => setLaunchOpen(false)}
+            onClick={handleClose}
             className="p-1 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors"
           >
             <X size={14} />
@@ -157,7 +166,7 @@ export default function LaunchCard() {
 
         {/* Actions */}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setLaunchOpen(false)}>Cancel</Button>
+          <Button variant="ghost" size="sm" onClick={handleClose}>Cancel</Button>
           <Button
             variant="primary"
             size="sm"
