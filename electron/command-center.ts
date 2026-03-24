@@ -4,6 +4,7 @@ import path from 'path'
 import os from 'os'
 import fs from 'fs'
 import { BrowserWindow } from 'electron'
+import { EventEmitter } from 'events'
 import { updateCCHistoryEntry, incrementDailyPrompts } from './database'
 
 // --- Claude binary resolution ---
@@ -77,6 +78,17 @@ const MAX_RESULT_TEXT = 2000
 const processes = new Map<string, ManagedProcess>()
 let mainWindow: BrowserWindow | null = null
 let rendererReady = false
+
+const streamEmitter = new EventEmitter()
+
+/** Subscribe to raw stream messages from all CC managed processes */
+export function onStreamMessage(
+  callback: (processId: string, msg: CCStreamMessage) => void
+): () => void {
+  const handler = (...args: any[]) => callback(args[0], args[1])
+  streamEmitter.on('stream', handler)
+  return () => { streamEmitter.off('stream', handler) }
+}
 
 // --- Helpers ---
 
@@ -403,6 +415,19 @@ function handleMessage(processId: string, msg: any) {
     item.sessionId = msg.session_id
     updateCCHistoryEntry(item.processId, { sessionId: msg.session_id })
     notifyRenderer()
+  }
+
+  // Emit for coach watcher
+  if (msg.type === 'assistant' && msg.message?.content) {
+    for (const block of msg.message.content) {
+      if (block.type === 'text') {
+        streamEmitter.emit('stream', processId, { type: 'assistant', text: block.text?.slice(0, 2000), timestamp })
+      } else if (block.type === 'tool_use') {
+        streamEmitter.emit('stream', processId, { type: 'tool_use', toolName: block.name, timestamp })
+      }
+    }
+  } else if (msg.type === 'result') {
+    streamEmitter.emit('stream', processId, { type: 'result', timestamp })
   }
 }
 
