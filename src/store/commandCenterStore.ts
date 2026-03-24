@@ -60,6 +60,8 @@ interface CommandCenterState {
   launchOpen: boolean
   projects: KnownProject[]
   focusId: string | null
+  selectedProject: string | null
+  launchPrefilledProject: string | null
 
   // Collab state
   collabSession: CollabSession | null
@@ -86,6 +88,10 @@ interface CommandCenterState {
   setFocusId: (id: string | null) => void
   updateQueue: (queue: CCQueueItem[]) => void
 
+  selectProject: (path: string) => void
+  deselectProject: () => void
+  setLaunchPrefilledProject: (path: string | null) => void
+
   // Collab actions
   startCollab: (task: string, maxRounds?: number) => Promise<void>
   resumeCollab: (sessionId: string, maxRounds?: number) => Promise<void>
@@ -109,6 +115,8 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   launchOpen: false,
   projects: [],
   focusId: null,
+  selectedProject: null,
+  launchPrefilledProject: null,
   collabSession: null,
   collabHistory: [],
   codexMessages: [],
@@ -163,6 +171,10 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   setLaunchOpen: (open) => set({ launchOpen: open }),
   setFocusId: (id) => set({ focusId: id }),
   updateQueue: (queue) => set({ queue }),
+
+  selectProject: (path) => set({ selectedProject: path, focusId: null }),
+  deselectProject: () => set({ selectedProject: null, focusId: null }),
+  setLaunchPrefilledProject: (path) => set({ launchPrefilledProject: path }),
 
   // Collab actions
   startCollab: async (task, maxRounds) => {
