@@ -10,9 +10,9 @@ const PROXY_HOST = '127.0.0.1'
 const PROXY_PORT = 8741
 const PROXY_PATH = '/claude/v1/chat/completions'
 const MODEL = 'claude-opus-4-6'
-const MAX_TOKENS = 2048
+const MAX_TOKENS = 4096
 const TEMPERATURE = 0.3
-const ANALYSIS_TIMEOUT = 15_000
+const ANALYSIS_TIMEOUT = 60_000
 const PING_TIMEOUT = 3_000
 const PING_INTERVAL = 30_000
 const MAX_QUEUE = 10
@@ -115,19 +115,15 @@ PROMPT lens: Was the request clear enough for a good first attempt? Did ambiguit
 
 STRATEGIC lens: Cross-session patterns — project switching, time of day, recurring blockers, neglected projects, productivity trends.
 
-Respond in JSON (no markdown fences):
-{
-  "tips": [
-    {
-      "category": "workflow" | "prompt" | "strategic",
-      "severity": "info" | "suggestion" | "warning",
-      "title": "short label (under 60 chars)",
-      "body": "1-3 sentences of actionable advice",
-      "reference": "quote the specific part of the exchange that triggered this"
-    }
-  ],
-  "dayAccumulatorUpdate": "updated strategic summary incorporating this exchange (under 500 chars, or null if no change)"
-}`
+STRICT RULES:
+- Respond ONLY with raw JSON. No markdown fences, no extra text.
+- Maximum 2 tips per response. Fewer is better.
+- "body" must be under 120 characters. One sentence only.
+- "reference" must be under 80 characters.
+- "dayAccumulatorUpdate" must be under 300 characters or null.
+
+JSON schema:
+{"tips":[{"category":"workflow|prompt|strategic","severity":"info|suggestion|warning","title":"under 60 chars","body":"under 120 chars","reference":"under 80 chars"}],"dayAccumulatorUpdate":"under 300 chars or null"}`
 
 function buildPrompt(
   exchange: CoachExchange,
@@ -256,14 +252,21 @@ export class CoachAnalyzer {
       }
 
       // Parse response — OpenAI-compatible format from llm-proxy
+      if (response?.error) {
+        console.error('[coach-analyzer] Proxy error:', response.error.message || JSON.stringify(response.error))
+        this.processing = false
+        this.setStatus('active')
+        this.processNext()
+        return
+      }
       const content = response?.choices?.[0]?.message?.content || ''
       let parsed: any
       try {
-        // Strip markdown fences if present
-        const jsonStr = content.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
+        // Strip markdown fences if present (multi-line aware)
+        const jsonStr = content.replace(/^```json?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim()
         parsed = JSON.parse(jsonStr)
       } catch {
-        console.error('[coach-analyzer] Failed to parse LLM response:', content.slice(0, 200))
+        console.error('[coach-analyzer] Failed to parse LLM response:', JSON.stringify(content).slice(0, 300))
         this.processing = false
         this.setStatus('active')
         this.processNext()
