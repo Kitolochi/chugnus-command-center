@@ -176,10 +176,16 @@ export class CoachAnalyzer {
   private enabled = false
   private offlinePingTimer: ReturnType<typeof setInterval> | null = null
   private sessionCountFn: (() => number) | null = null
+  private recentExchangesFn: ((sessionId: string) => CoachExchange[]) | null = null
 
   /** Provide a function that returns the current watched session count */
   setSessionCountFn(fn: () => number) {
     this.sessionCountFn = fn
+  }
+
+  /** Provide a function that returns recent exchanges for a session (hot memory) */
+  setRecentExchangesFn(fn: (sessionId: string) => CoachExchange[]) {
+    this.recentExchangesFn = fn
   }
 
   async start() {
@@ -237,9 +243,10 @@ export class CoachAnalyzer {
     this.setStatus('analyzing')
 
     try {
-      // Build context: up to 4 prior exchanges from the watcher's session buffer
-      // (passed via the exchange's sessionId — the orchestrator needs to supply recent exchanges)
-      const messages = buildPrompt(exchange, [], this.dayAccumulator)
+      // Pull recent exchanges from the watcher's hot memory buffer (excludes current)
+      const recent = this.recentExchangesFn?.(exchange.sessionId) || []
+      const prior = recent.filter(e => e.turnIndex < exchange.turnIndex).slice(-4)
+      const messages = buildPrompt(exchange, prior, this.dayAccumulator)
       const response = await callProxy(messages)
 
       // Check if disabled during the in-flight call

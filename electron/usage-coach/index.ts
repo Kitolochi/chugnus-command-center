@@ -39,6 +39,12 @@ export function initCoach(win: BrowserWindow) {
   // Let analyzer read the watcher's session count
   analyzer.setSessionCountFn(() => watcher?.sessions.size || 0)
 
+  // Let analyzer pull recent exchanges from the watcher's hot memory
+  analyzer.setRecentExchangesFn((sessionId) => {
+    const session = watcher?.sessions.get(sessionId)
+    return session?.exchanges || []
+  })
+
   // Re-send tips on renderer reload
   win.webContents.on('did-finish-load', () => {
     safeSend('coach:tips', currentTips)
