@@ -6,7 +6,7 @@ import type { CoachExchange } from './watcher'
 
 // --- Proxy HTTP helpers ---
 
-const PROXY_HOST = 'localhost'
+const PROXY_HOST = '127.0.0.1'
 const PROXY_PORT = 8741
 const PROXY_PATH = '/claude/v1/chat/completions'
 const MODEL = 'claude-opus-4-6'
