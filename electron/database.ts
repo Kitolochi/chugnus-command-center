@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import { app } from 'electron'
+import { getSecret, setSecret } from './secrets'
 import type { CoachDbState } from '../src/types'
 
 interface Task {
@@ -1532,7 +1533,7 @@ export function getRecentNotes(limit: number = 7): DailyNote[] {
 
 // Twitter settings
 export function getTwitterSettings(): TwitterSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.twitter,
     bearerToken: getSecret('twitterBearerToken') || db.twitter.bearerToken || '',
@@ -1544,7 +1545,7 @@ export function getTwitterSettings(): TwitterSettings {
 }
 
 export function saveTwitterSettings(settings: Partial<TwitterSettings>): TwitterSettings {
-  const { setSecret } = require('./secrets')
+
   if (settings.bearerToken !== undefined) {
     setSecret('twitterBearerToken', settings.bearerToken)
     db.twitter.bearerToken = ''
@@ -1592,24 +1593,24 @@ export function removeRSSFeed(url: string): RSSFeed[] {
 }
 
 export function getClaudeApiKey(): string {
-  const { getSecret } = require('./secrets')
+
   return getSecret('claudeApiKey') || db.claudeApiKey || ''
 }
 
 export function saveClaudeApiKey(key: string): void {
-  const { setSecret } = require('./secrets')
+
   setSecret('claudeApiKey', key)
   db.claudeApiKey = ''
   saveDatabase()
 }
 
 export function getTavilyApiKey(): string {
-  const { getSecret } = require('./secrets')
+
   return getSecret('tavilyApiKey') || db.tavilyApiKey || ''
 }
 
 export function saveTavilyApiKey(key: string): void {
-  const { setSecret } = require('./secrets')
+
   setSecret('tavilyApiKey', key)
   db.tavilyApiKey = ''
   saveDatabase()
@@ -2217,7 +2218,7 @@ export function updateCoachState(updates: Partial<CoachDbState>): CoachDbState {
 
 // LLM Settings
 export function getLLMSettings(): LLMSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.llmSettings,
     geminiApiKey: getSecret('geminiApiKey') || db.llmSettings.geminiApiKey || '',
@@ -2227,7 +2228,7 @@ export function getLLMSettings(): LLMSettings {
 }
 
 export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
-  const { setSecret } = require('./secrets')
+
   if (updates.provider !== undefined) db.llmSettings.provider = updates.provider
   if (updates.geminiApiKey !== undefined) {
     setSecret('geminiApiKey', updates.geminiApiKey)
@@ -2249,7 +2250,7 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
 
 // Telegram Settings
 export function getTelegramSettings(): TelegramSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.telegramSettings,
     botToken: getSecret('telegramBotToken') || db.telegramSettings.botToken || '',
@@ -2257,7 +2258,7 @@ export function getTelegramSettings(): TelegramSettings {
 }
 
 export function saveTelegramSettings(updates: Partial<TelegramSettings>): TelegramSettings {
-  const { setSecret } = require('./secrets')
+
   if (updates.botToken !== undefined) {
     setSecret('telegramBotToken', updates.botToken)
     db.telegramSettings.botToken = ''
