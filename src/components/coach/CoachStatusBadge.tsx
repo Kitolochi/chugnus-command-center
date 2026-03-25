@@ -1,10 +1,10 @@
 import { useCoachStore } from '../../store'
 
 export default function CoachStatusBadge() {
-  const { status, enabled, togglePanel, tips } = useCoachStore()
+  const { status, enabled, togglePanel, tips, focusedSessionId } = useCoachStore()
   if (!enabled) return null
 
-  const activeTipCount = tips.filter(t => !t.dismissed).length
+  const activeTipCount = tips.filter(t => !t.dismissed && (!focusedSessionId || t.sessionId === focusedSessionId)).length
   const colors: Record<string, string> = {
     active: 'bg-emerald-400',
     analyzing: 'bg-blue-400 animate-pulse',

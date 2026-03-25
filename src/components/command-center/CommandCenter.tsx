@@ -9,6 +9,7 @@ import HistoryView from './HistoryView'
 import CollabView from './CollabView'
 import CodexChatView from './CodexChatView'
 import { CoachStatusBadge, CoachPanel } from '../coach'
+import { useCoachStore } from '../../store'
 import ProjectsOverview from './ProjectsOverview'
 
 export default function CommandCenter() {
@@ -101,6 +102,12 @@ export default function CommandCenter() {
   const focusStillAwaiting = focusedItem?.status === 'awaiting_input' || focusedItem?.status === 'errored'
   const focusItem = (focusedItem && (userPinned || focusStillAwaiting)) ? focusedItem : sorted[0]
   const collapsed = sorted.filter(s => s.processId !== focusItem?.processId)
+
+  // Sync focused session to coach store for tip filtering
+  const setFocusedSessionId = useCoachStore(s => s.setFocusedSessionId)
+  useEffect(() => {
+    setFocusedSessionId(focusItem?.sessionId || null)
+  }, [focusItem?.sessionId, setFocusedSessionId])
 
   const selectedProjectName = selectedProject
     ? (projectQueue[0]?.projectName || 'Project')

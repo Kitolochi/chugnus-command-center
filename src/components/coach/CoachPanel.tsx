@@ -3,8 +3,8 @@ import CoachTipCard from './CoachTipCard'
 import CoachDaySummary from './CoachDaySummary'
 
 export default function CoachPanel() {
-  const { panelOpen, tips } = useCoachStore()
-  const visibleTips = tips.filter(t => !t.dismissed)
+  const { panelOpen, tips, focusedSessionId } = useCoachStore()
+  const visibleTips = tips.filter(t => !t.dismissed && (!focusedSessionId || t.sessionId === focusedSessionId))
 
   if (!panelOpen) return null
 

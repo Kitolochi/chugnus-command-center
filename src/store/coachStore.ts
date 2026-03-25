@@ -8,6 +8,7 @@ interface CoachStoreState {
   daySummary: string
   sessionCount: number
   panelOpen: boolean
+  focusedSessionId: string | null
 
   toggleEnabled: () => void
   togglePanel: () => void
@@ -18,6 +19,7 @@ interface CoachStoreState {
   setStatus: (status: CoachStoreState['status']) => void
   setSessionCount: (count: number) => void
   setDaySummary: (summary: string) => void
+  setFocusedSessionId: (id: string | null) => void
 }
 
 export const useCoachStore = create<CoachStoreState>((set, get) => ({
@@ -27,6 +29,7 @@ export const useCoachStore = create<CoachStoreState>((set, get) => ({
   daySummary: '',
   sessionCount: 0,
   panelOpen: false,
+  focusedSessionId: null,
 
   toggleEnabled: () => {
     const next = !get().enabled
@@ -59,4 +62,5 @@ export const useCoachStore = create<CoachStoreState>((set, get) => ({
   setStatus: (status) => set({ status }),
   setSessionCount: (count) => set({ sessionCount: count }),
   setDaySummary: (summary) => set({ daySummary: summary }),
+  setFocusedSessionId: (id) => set({ focusedSessionId: id }),
 }))
