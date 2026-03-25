@@ -1,25 +1,9 @@
-import { useEffect } from 'react'
 import { useCoachStore } from '../../store'
 import CoachTipCard from './CoachTipCard'
 import CoachDaySummary from './CoachDaySummary'
 
 export default function CoachPanel() {
-  const { panelOpen, tips, setTips, setStatus, setSessionCount, setDaySummary } = useCoachStore()
-
-  useEffect(() => {
-    const unsubTips = window.electronAPI.onCoachTips((incoming) => {
-      setTips(incoming)
-    })
-    const unsubStatus = window.electronAPI.onCoachStatus((data) => {
-      setStatus(data.status as any)
-      setSessionCount(data.sessionCount)
-    })
-    const unsubSummary = window.electronAPI.onCoachDaySummary((summary) => {
-      setDaySummary(summary)
-    })
-    return () => { unsubTips(); unsubStatus(); unsubSummary() }
-  }, [setTips, setStatus, setSessionCount, setDaySummary])
-
+  const { panelOpen, tips } = useCoachStore()
   const visibleTips = tips.filter(t => !t.dismissed)
 
   if (!panelOpen) return null
