@@ -117,8 +117,10 @@ export default function HistoryView() {
   }, [])
 
   useEffect(() => {
-    if (selectedProject && historyFilter !== selectedProject) {
+    if (selectedProject) {
       setHistoryFilter(selectedProject)
+    } else {
+      setHistoryFilter(null)
     }
   }, [selectedProject])
 
