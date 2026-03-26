@@ -1,10 +1,27 @@
+import { useEffect } from 'react'
 import { useCoachStore } from '../../store'
 import CoachTipCard from './CoachTipCard'
 import CoachDaySummary from './CoachDaySummary'
 
+const MAX_VISIBLE = 5
+
 export default function CoachPanel() {
-  const { panelOpen, tips, focusedSessionId } = useCoachStore()
-  const visibleTips = tips.filter(t => !t.dismissed && (!focusedSessionId || t.sessionId === focusedSessionId))
+  const { panelOpen, tips, focusedSessionId, dismissTip } = useCoachStore()
+
+  // Strategic tips always show; workflow/prompt filter to focused session
+  const activeTips = tips.filter(t => !t.dismissed && (
+    t.category === 'strategic' || !focusedSessionId || t.sessionId === focusedSessionId
+  ))
+
+  // Newest first, cap at MAX_VISIBLE
+  const sorted = [...activeTips].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  const visibleTips = sorted.slice(0, MAX_VISIBLE)
+
+  // Auto-dismiss overflow so tips don't pile up
+  useEffect(() => {
+    const overflow = sorted.slice(MAX_VISIBLE)
+    for (const tip of overflow) dismissTip(tip.id)
+  }, [tips.length])
 
   if (!panelOpen) return null
 
