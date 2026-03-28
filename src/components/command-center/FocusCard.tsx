@@ -98,9 +98,29 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     return parts.join('\n\n')
   }
 
-  const handleSend = () => {
+  const [shellOutput, setShellOutput] = useState<{ command: string; stdout: string; stderr: string; code: number } | null>(null)
+  const [shellRunning, setShellRunning] = useState(false)
+
+  const handleSend = async () => {
     const full = buildResponseWithAttachments()
     if (!full) return
+
+    // Shell command: ! prefix
+    if (full.startsWith('!')) {
+      const command = full.slice(1).trim()
+      if (!command) return
+      setShellRunning(true)
+      setResponse('')
+      try {
+        const result = await window.electronAPI.ccExecShell({ command, cwd: item.projectPath })
+        setShellOutput({ command, ...result })
+      } catch (err: any) {
+        setShellOutput({ command, stdout: '', stderr: err.message, code: 1 })
+      }
+      setShellRunning(false)
+      return
+    }
+
     respond(item.processId, full)
     setResponse('')
     setAttachments([])
@@ -364,6 +384,34 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           </div>
         )}
 
+        {/* Shell output */}
+        {shellRunning && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-surface-0 border border-white/[0.06]">
+            <Loader2 size={10} className="text-accent-cyan animate-spin" />
+            <span className="text-[10px] text-white/50 font-mono">Running...</span>
+          </div>
+        )}
+        {shellOutput && !shellRunning && (
+          <div className="mb-2 rounded-lg bg-surface-0 border border-white/[0.06] overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.04]">
+              <span className="text-[9px] text-accent-cyan font-mono">$ {shellOutput.command}</span>
+              <button onClick={() => setShellOutput(null)} className="text-white/20 hover:text-white/40">
+                <X size={10} />
+              </button>
+            </div>
+            <pre className="px-3 py-2 text-[10px] font-mono leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
+              {shellOutput.stdout && <span className="text-white/70">{shellOutput.stdout}</span>}
+              {shellOutput.stderr && <span className="text-accent-red/70">{shellOutput.stderr}</span>}
+              {!shellOutput.stdout && !shellOutput.stderr && <span className="text-white/30">(no output)</span>}
+            </pre>
+            {shellOutput.code !== 0 && (
+              <div className="px-3 py-1 border-t border-white/[0.04] text-[9px] text-accent-red/60 font-mono">
+                exit {shellOutput.code}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Pending input indicator */}
         {item.pendingInput && item.status === 'working' && !isStale && (
           <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-blue/5 border border-accent-blue/10">
@@ -435,7 +483,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
                 onChange={e => setResponse(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
                 onPaste={handlePaste}
-                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type follow-up, drop files, or paste images...'}
+                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type follow-up, !command for shell, drop files...'}
                 className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
                 rows={1}
               />

@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
-import { execSync } from 'child_process'
+import { execSync, exec } from 'child_process'
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
@@ -158,5 +158,22 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
     const projectPath = result.filePaths[0]
     upsertKnownProject(projectPath)
     return { path: projectPath, name: path.basename(projectPath) }
+  })
+
+  ipcMain.handle('cc:exec-shell', (_, opts: { command: string; cwd: string }) => {
+    return new Promise<{ stdout: string; stderr: string; code: number }>((resolve) => {
+      exec(opts.command, {
+        cwd: opts.cwd,
+        timeout: 30_000,
+        maxBuffer: 1024 * 1024,
+        shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+      }, (err, stdout, stderr) => {
+        resolve({
+          stdout: stdout || '',
+          stderr: stderr || '',
+          code: err?.code ?? 0,
+        })
+      })
+    })
   })
 }
