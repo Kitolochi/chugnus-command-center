@@ -270,6 +270,12 @@ export interface LLMSettings {
   fastModel: string
 }
 
+export interface CCSettings {
+  defaultEffort: 'low' | 'medium' | 'high' | 'max'
+  defaultModel: string
+  autoInferModel: boolean
+}
+
 export interface TelegramSettings {
   botToken: string
   authorizedChatId: string
@@ -631,6 +637,7 @@ interface Database {
   memorySettings: MemorySettings
   welcomeDismissed: boolean
   llmSettings: LLMSettings
+  ccSettings: CCSettings
   telegramSettings: TelegramSettings
   bankConnections: BankConnection[]
   bankAccounts: BankAccount[]
@@ -819,6 +826,16 @@ export function initDatabase(): Database {
         primaryModel: 'claude-sonnet-4-5-20250929',
         fastModel: 'claude-haiku-4-5-20251001'
       }
+    }
+    saveDatabase()
+  }
+
+  // Initialize ccSettings if missing
+  if (!(db as any).ccSettings) {
+    db.ccSettings = {
+      defaultEffort: 'high',
+      defaultModel: 'claude-sonnet-4-5-20250929',
+      autoInferModel: true,
     }
     saveDatabase()
   }
@@ -2246,6 +2263,19 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
   if (updates.fastModel !== undefined) db.llmSettings.fastModel = updates.fastModel
   saveDatabase()
   return getLLMSettings()
+}
+
+// CC Settings
+export function getCCSettings(): CCSettings {
+  return { ...db.ccSettings }
+}
+
+export function saveCCSettings(updates: Partial<CCSettings>): CCSettings {
+  if (updates.defaultEffort !== undefined) db.ccSettings.defaultEffort = updates.defaultEffort
+  if (updates.defaultModel !== undefined) db.ccSettings.defaultModel = updates.defaultModel
+  if (updates.autoInferModel !== undefined) db.ccSettings.autoInferModel = updates.autoInferModel
+  saveDatabase()
+  return getCCSettings()
 }
 
 // Telegram Settings

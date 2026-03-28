@@ -11,17 +11,18 @@ import { updateCCHistoryEntry, incrementDailyPrompts } from './database'
 
 function resolveClaudeBinary(): string {
   if (process.env.CLAUDE_BINARY) return process.env.CLAUDE_BINARY
-  const candidates = process.platform === 'win32'
-    ? [
-        path.join(os.homedir(), '.local', 'bin', 'claude.exe'),
-        path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-        path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude'),
-      ]
-    : [
-        path.join(os.homedir(), '.local', 'bin', 'claude'),
-        '/usr/local/bin/claude',
-        path.join(os.homedir(), '.npm-global', 'bin', 'claude'),
-      ]
+  const candidates =
+    process.platform === 'win32'
+      ? [
+          path.join(os.homedir(), '.local', 'bin', 'claude.exe'),
+          path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+          path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude'),
+        ]
+      : [
+          path.join(os.homedir(), '.local', 'bin', 'claude'),
+          '/usr/local/bin/claude',
+          path.join(os.homedir(), '.npm-global', 'bin', 'claude'),
+        ]
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate
   }
@@ -82,12 +83,12 @@ let rendererReady = false
 const streamEmitter = new EventEmitter()
 
 /** Subscribe to raw stream messages from all CC managed processes */
-export function onStreamMessage(
-  callback: (processId: string, msg: CCStreamMessage) => void
-): () => void {
+export function onStreamMessage(callback: (processId: string, msg: CCStreamMessage) => void): () => void {
   const handler = (...args: any[]) => callback(args[0], args[1])
   streamEmitter.on('stream', handler)
-  return () => { streamEmitter.off('stream', handler) }
+  return () => {
+    streamEmitter.off('stream', handler)
+  }
 }
 
 // --- Helpers ---
@@ -95,7 +96,7 @@ export function onStreamMessage(
 function hashColor(str: string): string {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash = (hash << 5) - hash + str.charCodeAt(i)
     hash |= 0
   }
   return ACCENT_COLORS[Math.abs(hash) % ACCENT_COLORS.length]
@@ -118,21 +119,27 @@ export function initCommandCenter(win: BrowserWindow) {
   rendererReady = false
 
   // Track when the renderer page is actually ready to receive IPC
-  win.webContents.on('did-finish-load', () => { rendererReady = true })
-  win.webContents.on('did-start-navigation', () => { rendererReady = false })
+  win.webContents.on('did-finish-load', () => {
+    rendererReady = true
+  })
+  win.webContents.on('did-start-navigation', () => {
+    rendererReady = false
+  })
   win.webContents.on('render-process-gone', (_e, details) => {
     rendererReady = false
     console.error('[cc] Renderer process gone:', details.reason)
     // Auto-reload on crash so the user doesn't get a permanent blank screen
     setTimeout(() => {
-      try { win.webContents.reload() } catch {}
+      try {
+        win.webContents.reload()
+      } catch {}
     }, 1000)
   })
 }
 
 /** Lightweight queue for IPC — strips fullLog to keep payloads small */
 function getLightQueue(): CCQueueItem[] {
-  return Array.from(processes.values()).map(m => ({
+  return Array.from(processes.values()).map((m) => ({
     ...m.item,
     fullLog: [], // sent on demand via cc:get-log
   }))
@@ -140,7 +147,7 @@ function getLightQueue(): CCQueueItem[] {
 
 /** Full queue including logs — used for explicit requests */
 export function getQueue(): CCQueueItem[] {
-  return Array.from(processes.values()).map(m => ({ ...m.item }))
+  return Array.from(processes.values()).map((m) => ({ ...m.item }))
 }
 
 /** Get fullLog for a single process */
@@ -197,6 +204,7 @@ export function launchProcess(opts: {
   projectPath: string
   prompt: string
   model?: string
+  effort?: string
   maxBudget?: number
   resumeSessionId?: string
 }): CCQueueItem {
@@ -216,19 +224,20 @@ export function launchProcess(opts: {
   const processId = crypto.randomUUID()
 
   // When resuming, resolve the correct CWD where the session file actually lives
-  const effectiveCwd = opts.resumeSessionId
-    ? findSessionCwd(opts.resumeSessionId, opts.projectPath)
-    : opts.projectPath
+  const effectiveCwd = opts.resumeSessionId ? findSessionCwd(opts.resumeSessionId, opts.projectPath) : opts.projectPath
   const projectName = path.basename(effectiveCwd)
   const projectColor = hashColor(effectiveCwd)
 
   const args = [
     '-p',
-    '--output-format', 'stream-json',
-    '--input-format', 'stream-json',
+    '--output-format',
+    'stream-json',
+    '--input-format',
+    'stream-json',
     '--verbose',
     '--dangerously-skip-permissions',
-    '--disallowed-tools', 'EnterPlanMode,ExitPlanMode',
+    '--disallowed-tools',
+    'EnterPlanMode,ExitPlanMode',
     '--append-system-prompt',
     `CONTEXT SIZE RULES — FOLLOW STRICTLY:
 1. Before reading ANY file, check size with ls -lh. If over 200KB, use offset/limit to read only the section you need. Never read minified, bundled, or binary files.
@@ -243,6 +252,7 @@ export function launchProcess(opts: {
     args.push('--resume', opts.resumeSessionId)
   }
   if (opts.model) args.push('--model', opts.model)
+  if (opts.effort) args.push('--effort', opts.effort)
   if (opts.maxBudget) args.push('--max-budget-usd', String(opts.maxBudget))
 
   // Resolve claude binary by platform with fallback detection
@@ -276,13 +286,12 @@ export function launchProcess(opts: {
   // Send user message immediately for both new and resumed sessions.
   // stream-json input mode won't emit any output until it receives stdin input,
   // so we must send the prompt first — the system init message arrives after.
-  const prompt = opts.resumeSessionId
-    ? (opts.prompt || 'Continue where we left off.')
-    : opts.prompt
-  const msg = JSON.stringify({
-    type: 'user',
-    message: { role: 'user', content: prompt }
-  }) + '\n'
+  const prompt = opts.resumeSessionId ? opts.prompt || 'Continue where we left off.' : opts.prompt
+  const msg =
+    JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: prompt },
+    }) + '\n'
   proc.stdin?.write(msg)
 
   // Handle stdout (stream-json, newline-delimited)
@@ -308,7 +317,9 @@ export function launchProcess(opts: {
       try {
         const parsed = JSON.parse(managed.buffer)
         handleMessage(processId, parsed)
-      } catch { /* incomplete JSON, discard */ }
+      } catch {
+        /* incomplete JSON, discard */
+      }
       managed.buffer = ''
     }
   })
@@ -331,7 +342,9 @@ export function launchProcess(opts: {
       try {
         const parsed = JSON.parse(m.buffer)
         handleMessage(processId, parsed)
-      } catch { /* incomplete JSON, discard */ }
+      } catch {
+        /* incomplete JSON, discard */
+      }
       m.buffer = ''
     }
 
@@ -442,10 +455,11 @@ export function respondToProcess(processId: string, response: string) {
     throw new Error('Process stdin closed')
   }
 
-  const msg = JSON.stringify({
-    type: 'user',
-    message: { role: 'user', content: response }
-  }) + '\n'
+  const msg =
+    JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: response },
+    }) + '\n'
 
   incrementDailyPrompts()
   m.item.fullLog.push({ type: 'user', text: response, timestamp: Date.now() })
@@ -473,14 +487,20 @@ export function dismissProcess(processId: string): CCQueueItem | null {
   if (!m) return null
 
   const finalItem = { ...m.item, status: 'completed' as const, updatedAt: Date.now() }
-  const proc = m.proc  // capture ref before deleting from map
+  const proc = m.proc // capture ref before deleting from map
 
-  try { proc.stdin?.end() } catch {}
+  try {
+    proc.stdin?.end()
+  } catch {}
   processes.delete(processId)
   notifyRenderer()
 
   // Clean up process after stdin closes
-  setTimeout(() => { try { proc.kill() } catch {} }, 1000)
+  setTimeout(() => {
+    try {
+      proc.kill()
+    } catch {}
+  }, 1000)
 
   return finalItem
 }
@@ -490,8 +510,14 @@ export function killProcess(processId: string): CCQueueItem | null {
   if (!m) return null
 
   const finalItem = { ...m.item }
-  try { m.proc.kill('SIGTERM') } catch {}
-  setTimeout(() => { try { m.proc.kill('SIGKILL') } catch {} }, 5000)
+  try {
+    m.proc.kill('SIGTERM')
+  } catch {}
+  setTimeout(() => {
+    try {
+      m.proc.kill('SIGKILL')
+    } catch {}
+  }, 5000)
   processes.delete(processId)
   notifyRenderer()
   return finalItem
@@ -500,11 +526,15 @@ export function killProcess(processId: string): CCQueueItem | null {
 export function shutdownAllProcesses(): Promise<void> {
   return new Promise((resolve) => {
     for (const [id] of processes) {
-      try { processes.get(id)?.proc.kill('SIGTERM') } catch {}
+      try {
+        processes.get(id)?.proc.kill('SIGTERM')
+      } catch {}
     }
     setTimeout(() => {
       for (const [id] of processes) {
-        try { processes.get(id)?.proc.kill('SIGKILL') } catch {}
+        try {
+          processes.get(id)?.proc.kill('SIGKILL')
+        } catch {}
       }
       processes.clear()
       resolve()

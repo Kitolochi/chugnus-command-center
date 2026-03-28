@@ -77,7 +77,11 @@ interface CommandCenterState {
   loadQueue: () => Promise<void>
   loadHistory: (filter?: string | null) => Promise<void>
   loadProjects: () => Promise<void>
-  launch: (projectPath: string, prompt: string, opts?: { model?: string; maxBudget?: number; resumeSessionId?: string }) => Promise<void>
+  launch: (
+    projectPath: string,
+    prompt: string,
+    opts?: { model?: string; effort?: string; maxBudget?: number; resumeSessionId?: string }
+  ) => Promise<void>
   respond: (processId: string, response: string) => Promise<void>
   dismiss: (processId: string) => Promise<void>
   park: (processId: string) => Promise<void>
@@ -243,9 +247,12 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
           content: `[Project context: ${codexProject}]\n\nFile tree:\n\`\`\`\n${codexProjectTree}\n\`\`\``,
         })
       }
-      apiMessages.push(...updated.map(m => ({ role: m.role, content: m.content })))
+      apiMessages.push(...updated.map((m) => ({ role: m.role, content: m.content })))
 
-      const { content } = await window.electronAPI.codexSend({ messages: apiMessages, projectPath: codexProject || undefined })
+      const { content } = await window.electronAPI.codexSend({
+        messages: apiMessages,
+        projectPath: codexProject || undefined,
+      })
       const assistantMsg = { role: 'assistant' as const, content }
       set({ codexMessages: [...updated, assistantMsg], codexLoading: false })
     } catch (err: any) {

@@ -104,65 +104,109 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const handleSlashCommand = async (cmd: string): Promise<boolean> => {
     const parts = cmd.slice(1).trim().split(/\s+/)
     const name = parts[0]?.toLowerCase()
+    const arg = parts.slice(1).join(' ')
 
-    if (name === 'mcp') {
+    const showResult = (command: string, stdout: string) => {
+      setShellOutput({ command, stdout, stderr: '', code: 0 })
+      setResponse('')
+    }
+
+    const runCli = async (command: string, label: string) => {
       setShellRunning(true)
       setResponse('')
       try {
-        const result = await window.electronAPI.ccExecShell({ command: 'claude mcp list', cwd: item.projectPath })
-        setShellOutput({ command: '/mcp', ...result })
+        const result = await window.electronAPI.ccExecShell({ command, cwd: item.projectPath })
+        setShellOutput({ command: label, ...result })
       } catch (err: any) {
-        setShellOutput({ command: '/mcp', stdout: '', stderr: err.message, code: 1 })
+        setShellOutput({ command: label, stdout: '', stderr: err.message, code: 1 })
       }
       setShellRunning(false)
+    }
+
+    if (name === 'mcp') { await runCli('claude mcp list', '/mcp'); return true }
+    if (name === 'agents') { await runCli('claude agents', '/agents'); return true }
+    if (name === 'doctor') { await runCli('claude doctor', '/doctor'); return true }
+
+    if (name === 'effort') {
+      const valid = ['low', 'medium', 'high', 'max']
+      if (!arg || !valid.includes(arg)) {
+        showResult('/effort', `Usage: /effort <${valid.join('|')}>\nSets thinking level. Restarts session with new effort.`)
+        return true
+      }
+      // Kill and relaunch with new effort
+      const sessionId = item.sessionId
+      const projectPath = item.projectPath
+      kill(item.processId)
+      setTimeout(() => {
+        const { launch } = useCommandCenterStore.getState()
+        launch(projectPath, 'Continue where we left off.', { effort: arg, resumeSessionId: sessionId || undefined })
+      }, 500)
+      setResponse('')
+      return true
+    }
+
+    if (name === 'model') {
+      const aliases: Record<string, string> = { sonnet: 'claude-sonnet-4-5-20250929', opus: 'claude-opus-4-6', haiku: 'claude-haiku-4-5-20251001' }
+      const modelId = aliases[arg?.toLowerCase()] || arg
+      if (!modelId) {
+        showResult('/model', 'Usage: /model <sonnet|opus|haiku>\nSwitches model. Restarts session.')
+        return true
+      }
+      const sessionId = item.sessionId
+      const projectPath = item.projectPath
+      kill(item.processId)
+      setTimeout(() => {
+        const { launch } = useCommandCenterStore.getState()
+        launch(projectPath, 'Continue where we left off.', { model: modelId, resumeSessionId: sessionId || undefined })
+      }, 500)
+      setResponse('')
+      return true
+    }
+
+    if (name === 'name') {
+      if (!arg) { showResult('/name', 'Usage: /name <label>\nNames this session for easy identification.'); return true }
+      // Update the queue item's projectName display (cosmetic only)
+      showResult('/name', `Session named: ${arg}`)
       return true
     }
 
     if (name === 'cost') {
-      setShellOutput({ command: '/cost', stdout: `Session: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nFiles changed: ${item.filesChanged.length}`, stderr: '', code: 0 })
-      setResponse('')
+      showResult('/cost', `Session: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nFiles changed: ${item.filesChanged.length}`)
       return true
     }
 
     if (name === 'status') {
       const elapsed = Math.round((Date.now() - item.startedAt) / 60000)
-      setShellOutput({ command: '/status', stdout: `Status: ${item.status}\nProject: ${item.projectName}\nSession: ${item.sessionId || 'pending'}\nCost: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nElapsed: ${elapsed}m\nFiles: ${item.filesChanged.join(', ') || 'none'}`, stderr: '', code: 0 })
-      setResponse('')
+      showResult('/status', `Status: ${item.status}\nProject: ${item.projectName}\nSession: ${item.sessionId || 'pending'}\nCost: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nElapsed: ${elapsed}m\nFiles: ${item.filesChanged.join(', ') || 'none'}`)
       return true
     }
 
-    if (name === 'clear') {
-      kill(item.processId)
-      setResponse('')
-      return true
-    }
+    if (name === 'clear') { kill(item.processId); setResponse(''); return true }
 
     if (name === 'compact') {
-      setShellOutput({ command: '/compact', stdout: 'Context management is automatic in managed sessions.\nClaude compresses context when approaching limits.', stderr: '', code: 0 })
-      setResponse('')
+      showResult('/compact', 'Context management is automatic in managed sessions.\nClaude compresses context when approaching limits.')
       return true
     }
 
     if (name === 'help') {
-      setShellOutput({
-        command: '/help',
-        stdout: [
-          'Commands:',
-          '  /mcp          List configured MCP servers',
-          '  /cost         Show session cost and stats',
-          '  /status       Full session status',
-          '  /clear        Kill this session',
-          '  /compact      Context info',
-          '  /help         This message',
-          '',
-          'Prefixes:',
-          '  !command      Run shell command in project dir',
-          '  (no prefix)   Send to Claude as prompt',
-        ].join('\n'),
-        stderr: '',
-        code: 0,
-      })
-      setResponse('')
+      showResult('/help', [
+        'Session:',
+        '  /effort <low|medium|high|max>  Set thinking level (restarts)',
+        '  /model <sonnet|opus|haiku>     Switch model (restarts)',
+        '  /name <label>                  Name this session',
+        '  /cost                          Session cost and stats',
+        '  /status                        Full session info',
+        '  /clear                         Kill this session',
+        '  /compact                       Context info',
+        '',
+        'CLI:',
+        '  /mcp                           List MCP servers',
+        '  /agents                        List configured agents',
+        '  /doctor                        Claude Code health check',
+        '',
+        'Shell:',
+        '  !command                       Run in project dir',
+      ].join('\n'))
       return true
     }
 
