@@ -101,9 +101,83 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const [shellOutput, setShellOutput] = useState<{ command: string; stdout: string; stderr: string; code: number } | null>(null)
   const [shellRunning, setShellRunning] = useState(false)
 
+  const handleSlashCommand = async (cmd: string): Promise<boolean> => {
+    const parts = cmd.slice(1).trim().split(/\s+/)
+    const name = parts[0]?.toLowerCase()
+
+    if (name === 'mcp') {
+      setShellRunning(true)
+      setResponse('')
+      try {
+        const result = await window.electronAPI.ccExecShell({ command: 'claude mcp list', cwd: item.projectPath })
+        setShellOutput({ command: '/mcp', ...result })
+      } catch (err: any) {
+        setShellOutput({ command: '/mcp', stdout: '', stderr: err.message, code: 1 })
+      }
+      setShellRunning(false)
+      return true
+    }
+
+    if (name === 'cost') {
+      setShellOutput({ command: '/cost', stdout: `Session: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nFiles changed: ${item.filesChanged.length}`, stderr: '', code: 0 })
+      setResponse('')
+      return true
+    }
+
+    if (name === 'status') {
+      const elapsed = Math.round((Date.now() - item.startedAt) / 60000)
+      setShellOutput({ command: '/status', stdout: `Status: ${item.status}\nProject: ${item.projectName}\nSession: ${item.sessionId || 'pending'}\nCost: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nElapsed: ${elapsed}m\nFiles: ${item.filesChanged.join(', ') || 'none'}`, stderr: '', code: 0 })
+      setResponse('')
+      return true
+    }
+
+    if (name === 'clear') {
+      kill(item.processId)
+      setResponse('')
+      return true
+    }
+
+    if (name === 'compact') {
+      setShellOutput({ command: '/compact', stdout: 'Context management is automatic in managed sessions.\nClaude compresses context when approaching limits.', stderr: '', code: 0 })
+      setResponse('')
+      return true
+    }
+
+    if (name === 'help') {
+      setShellOutput({
+        command: '/help',
+        stdout: [
+          'Commands:',
+          '  /mcp          List configured MCP servers',
+          '  /cost         Show session cost and stats',
+          '  /status       Full session status',
+          '  /clear        Kill this session',
+          '  /compact      Context info',
+          '  /help         This message',
+          '',
+          'Prefixes:',
+          '  !command      Run shell command in project dir',
+          '  (no prefix)   Send to Claude as prompt',
+        ].join('\n'),
+        stderr: '',
+        code: 0,
+      })
+      setResponse('')
+      return true
+    }
+
+    return false
+  }
+
   const handleSend = async () => {
     const full = buildResponseWithAttachments()
     if (!full) return
+
+    // Slash commands: / prefix
+    if (full.startsWith('/')) {
+      const handled = await handleSlashCommand(full)
+      if (handled) return
+    }
 
     // Shell command: ! prefix
     if (full.startsWith('!')) {
@@ -483,7 +557,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
                 onChange={e => setResponse(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
                 onPaste={handlePaste}
-                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type follow-up, !command for shell, drop files...'}
+                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type prompt, /help, !shell, or drop files...'}
                 className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
                 rows={1}
               />
