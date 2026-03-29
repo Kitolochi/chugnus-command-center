@@ -50,6 +50,8 @@ export interface CCQueueItem {
   startedAt: number
   updatedAt: number
   lastActivityAt: number
+  model?: string
+  effort?: string
 }
 
 export interface CCStreamMessage {
@@ -278,6 +280,8 @@ export function launchProcess(opts: {
     startedAt: Date.now(),
     updatedAt: Date.now(),
     lastActivityAt: Date.now(),
+    model: opts.model,
+    effort: opts.effort,
   }
 
   const managed: ManagedProcess = { proc, item, buffer: '' }
