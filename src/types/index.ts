@@ -40,6 +40,36 @@ export interface GitHubRepoResult {
   updatedAt: string
 }
 
+// === Usage Coach Types ===
+
+export interface CoachTip {
+  id: string
+  category: 'workflow' | 'prompt' | 'strategic'
+  severity: 'info' | 'suggestion' | 'warning'
+  title: string
+  body: string
+  reference: string
+  sessionId: string
+  project: string
+  timestamp: string
+  dismissed: boolean
+  saved: boolean
+}
+
+export interface CoachDbState {
+  dayAccumulator: string
+  lastResetDate: string
+  enabled: boolean
+  globalTipsEmitted: string[]
+  sessions: Record<
+    string,
+    {
+      byteOffset: number
+      tipsEmitted: string[]
+    }
+  >
+}
+
 // === Memory Types ===
 
 export interface Memory {
@@ -47,7 +77,7 @@ export interface Memory {
   title: string
   content: string
   topics: string[]
-  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual'
+  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual' | 'coach'
   sourceId: string | null
   sourcePreview: string
   importance: 1 | 2 | 3
@@ -83,13 +113,13 @@ export interface MemoryHealth {
 // === Context Files ===
 
 export interface ContextFile {
-  name: string       // e.g. "learnings.md" or "data.json"
-  path: string       // full path
-  content: string    // file content (empty string for binary)
+  name: string // e.g. "learnings.md" or "data.json"
+  path: string // full path
+  content: string // file content (empty string for binary)
   modifiedAt: string // ISO timestamp
-  folder: string     // relative folder path from root, e.g. "" or "research/ai"
+  folder: string // relative folder path from root, e.g. "" or "research/ai"
   isDirectory: boolean // true if this entry is a folder
-  size: number       // file size in bytes
+  size: number // file size in bytes
 }
 
 // === RAG / Embeddings ===
@@ -308,7 +338,18 @@ export interface AgentEvent {
   agentId: string
   runId?: string
   issueId?: string
-  type: 'launch' | 'complete' | 'fail' | 'retry' | 'requeue' | 'budget_alert' | 'escalation' | 'cooldown' | 'pause' | 'resume' | 'auto_relaunch'
+  type:
+    | 'launch'
+    | 'complete'
+    | 'fail'
+    | 'retry'
+    | 'requeue'
+    | 'budget_alert'
+    | 'escalation'
+    | 'cooldown'
+    | 'pause'
+    | 'resume'
+    | 'auto_relaunch'
   detail: string
 }
 
@@ -559,7 +600,9 @@ export interface ElectronAPI {
   getLLMSettings: () => Promise<LLMSettings>
   saveLLMSettings: (settings: Partial<LLMSettings>) => Promise<LLMSettings>
   verifyLLMKey: (provider: string, key: string) => Promise<{ valid: boolean; error?: string }>
-  getProviderModels: () => Promise<Record<string, { primary: { id: string; name: string }[]; fast: { id: string; name: string }[] }>>
+  getProviderModels: () => Promise<
+    Record<string, { primary: { id: string; name: string }[]; fast: { id: string; name: string }[] }>
+  >
   getProviderChatModels: () => Promise<Record<string, { id: string; name: string }[]>>
 
   // Claude API
@@ -569,8 +612,14 @@ export interface ElectronAPI {
 
   // CLI logs
   getCliSessions: () => Promise<CLISession[]>
-  getCliSessionMessages: (sessionId: string, offset?: number, limit?: number) => Promise<{ messages: CLISessionMessage[]; hasMore: boolean }>
-  searchCliSessions: (query: string) => Promise<{ sessionId: string; firstPrompt: string; matches: string[]; project: string }[]>
+  getCliSessionMessages: (
+    sessionId: string,
+    offset?: number,
+    limit?: number
+  ) => Promise<{ messages: CLISessionMessage[]; hasMore: boolean }>
+  searchCliSessions: (
+    query: string
+  ) => Promise<{ sessionId: string; firstPrompt: string; matches: string[]; project: string }[]>
   searchGitHubRepos: (query: string) => Promise<GitHubRepoResult[]>
 
   // Launch external terminal
@@ -635,13 +684,19 @@ export interface ElectronAPI {
   // ChatGPT OAuth
   chatgptOAuthStart: () => Promise<{ connected: boolean; profile: { sub: string; name: string; email: string } }>
   chatgptOAuthDisconnect: () => Promise<void>
-  chatgptOAuthStatus: () => Promise<{ connected: boolean; profile?: { sub: string; name: string; email: string }; expiresAt?: string }>
+  chatgptOAuthStatus: () => Promise<{
+    connected: boolean
+    profile?: { sub: string; name: string; email: string }
+    expiresAt?: string
+  }>
   chatgptOAuthRefresh: () => Promise<{ refreshed: boolean }>
 
   // Agent Orchestration
   getAgents: () => Promise<Agent[]>
   getAgent: (id: string) => Promise<Agent | null>
-  createAgent: (data: Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | 'spentMonthlyCents' | 'budgetResetDate' | 'status'>) => Promise<Agent>
+  createAgent: (
+    data: Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | 'spentMonthlyCents' | 'budgetResetDate' | 'status'>
+  ) => Promise<Agent>
   updateAgent: (id: string, updates: Partial<Agent>) => Promise<Agent | null>
   deleteAgent: (id: string) => Promise<void>
   setAgentStatus: (id: string, status: Agent['status'], lastError?: string) => Promise<Agent | null>
@@ -678,7 +733,14 @@ export interface ElectronAPI {
   avRefresh: () => Promise<boolean>
 
   // Command Center
-  ccLaunch: (opts: { projectPath: string; prompt: string; model?: string; maxBudget?: number; resumeSessionId?: string }) => Promise<any>
+  ccLaunch: (opts: {
+    projectPath: string
+    prompt: string
+    model?: string
+    effort?: string
+    maxBudget?: number
+    resumeSessionId?: string
+  }) => Promise<any>
   ccRespond: (opts: { processId: string; response: string }) => Promise<void>
   ccDismiss: (opts: { processId: string }) => Promise<any>
   ccPark: (opts: { processId: string }) => Promise<any>
@@ -692,10 +754,18 @@ export interface ElectronAPI {
   ccGetProjectDescription: (opts: { projectPath: string }) => Promise<string>
   ccBrowseProject: () => Promise<{ path: string; name: string } | null>
   ccCreateProject: (opts: { name: string }) => Promise<{ path: string; name: string } | null>
+  ccExecShell: (opts: { command: string; cwd: string }) => Promise<{ stdout: string; stderr: string; code: number }>
+  ccGetSettings: () => Promise<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean }>
+  ccSaveSettings: (
+    updates: Partial<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean }>
+  ) => Promise<any>
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
 
   // Codex Chat (GPT 5.4)
-  codexSend: (opts: { messages: { role: string; content: string }[]; projectPath?: string }) => Promise<{ content: string; tokensIn: number; tokensOut: number }>
+  codexSend: (opts: {
+    messages: { role: string; content: string }[]
+    projectPath?: string
+  }) => Promise<{ content: string; tokensIn: number; tokensOut: number }>
   codexReadTree: (opts: { projectPath: string }) => Promise<string>
   codexReadFile: (opts: { filePath: string }) => Promise<string>
   codexReadFileForChat: (opts: { filePath: string }) => Promise<FileAttachment>
@@ -722,6 +792,14 @@ export interface ElectronAPI {
   // Window controls
   closeWindow: () => void
   minimizeWindow: () => void
+
+  // Usage Coach
+  coachToggle: (enabled: boolean) => Promise<void>
+  coachSaveTip: (tip: CoachTip) => Promise<void>
+  coachClearDay: () => Promise<void>
+  onCoachTips: (callback: (tips: CoachTip[]) => void) => () => void
+  onCoachStatus: (callback: (data: { status: string; sessionCount: number }) => void) => () => void
+  onCoachDaySummary: (callback: (summary: string) => void) => () => void
 }
 
 declare global {

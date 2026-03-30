@@ -21,25 +21,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchGitHubRepos: (query: string) => ipcRenderer.invoke('search-github-repos', query),
 
   // Launch external terminal
-  launchExternalTerminal: (prompt: string, cwd?: string) =>
-    ipcRenderer.invoke('launch-external-terminal', prompt, cwd),
+  launchExternalTerminal: (prompt: string, cwd?: string) => ipcRenderer.invoke('launch-external-terminal', prompt, cwd),
 
   // Smart Query
   smartQuery: (query: string) => ipcRenderer.invoke('smart-query', query),
   onSmartQueryChunk: (callback: (data: { queryId: string; text: string }) => void) => {
     const handler = (_: any, data: { queryId: string; text: string }) => callback(data)
     ipcRenderer.on('smart-query-chunk', handler)
-    return () => { ipcRenderer.removeListener('smart-query-chunk', handler) }
+    return () => {
+      ipcRenderer.removeListener('smart-query-chunk', handler)
+    }
   },
   onSmartQueryEnd: (callback: (data: { queryId: string }) => void) => {
     const handler = (_: any, data: any) => callback(data)
     ipcRenderer.on('smart-query-end', handler)
-    return () => { ipcRenderer.removeListener('smart-query-end', handler) }
+    return () => {
+      ipcRenderer.removeListener('smart-query-end', handler)
+    }
   },
   onSmartQueryError: (callback: (data: { queryId: string; error: string }) => void) => {
     const handler = (_: any, data: any) => callback(data)
     ipcRenderer.on('smart-query-error', handler)
-    return () => { ipcRenderer.removeListener('smart-query-error', handler) }
+    return () => {
+      ipcRenderer.removeListener('smart-query-error', handler)
+    }
   },
 
   // RAG / Embeddings
@@ -50,17 +55,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEmbeddingProgress: (callback: (progress: number) => void) => {
     const handler = (_: any, progress: number) => callback(progress)
     ipcRenderer.on('embedding-progress', handler)
-    return () => { ipcRenderer.removeListener('embedding-progress', handler) }
+    return () => {
+      ipcRenderer.removeListener('embedding-progress', handler)
+    }
   },
   onIndexProgress: (callback: (info: { phase: string; current: number; total: number }) => void) => {
     const handler = (_: any, info: any) => callback(info)
     ipcRenderer.on('index-progress', handler)
-    return () => { ipcRenderer.removeListener('index-progress', handler) }
+    return () => {
+      ipcRenderer.removeListener('index-progress', handler)
+    }
   },
 
   // Context Files
   getContextFiles: () => ipcRenderer.invoke('get-context-files'),
-  saveContextFile: (name: string, content: string, folder?: string) => ipcRenderer.invoke('save-context-file', name, content, folder || ''),
+  saveContextFile: (name: string, content: string, folder?: string) =>
+    ipcRenderer.invoke('save-context-file', name, content, folder || ''),
   deleteContextFile: (name: string) => ipcRenderer.invoke('delete-context-file', name),
   createContextFolder: (relativePath: string) => ipcRenderer.invoke('create-context-folder', relativePath),
   deleteContextFolder: (relativePath: string) => ipcRenderer.invoke('delete-context-folder', relativePath),
@@ -91,7 +101,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Lab tools
   compressSingleFile: (relativePath: string) => ipcRenderer.invoke('compress-single-file', relativePath),
   compressFolder: (folder: string) => ipcRenderer.invoke('compress-folder', folder),
-  testEmbeddingSimilarity: (textA: string, textB: string) => ipcRenderer.invoke('test-embedding-similarity', textA, textB),
+  testEmbeddingSimilarity: (textA: string, textB: string) =>
+    ipcRenderer.invoke('test-embedding-similarity', textA, textB),
   listContextFiles: () => ipcRenderer.invoke('list-context-files'),
   getMemoryHealth: () => ipcRenderer.invoke('get-memory-health'),
   autoPruneMemories: () => ipcRenderer.invoke('auto-prune-memories'),
@@ -100,12 +111,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCompressionProgress: (callback: (progress: any) => void) => {
     const handler = (_: any, progress: any) => callback(progress)
     ipcRenderer.on('compression-progress', handler)
-    return () => { ipcRenderer.removeListener('compression-progress', handler) }
+    return () => {
+      ipcRenderer.removeListener('compression-progress', handler)
+    }
   },
   onMemoryHealthUpdate: (callback: (health: any) => void) => {
     const handler = (_: any, health: any) => callback(health)
     ipcRenderer.on('memory-health-update', handler)
-    return () => { ipcRenderer.removeListener('memory-health-update', handler) }
+    return () => {
+      ipcRenderer.removeListener('memory-health-update', handler)
+    }
   },
 
   // ChatGPT OAuth
@@ -120,7 +135,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createAgent: (data: any) => ipcRenderer.invoke('create-agent', data),
   updateAgent: (id: string, updates: any) => ipcRenderer.invoke('update-agent', id, updates),
   deleteAgent: (id: string) => ipcRenderer.invoke('delete-agent', id),
-  setAgentStatus: (id: string, status: string, lastError?: string) => ipcRenderer.invoke('set-agent-status', id, status, lastError),
+  setAgentStatus: (id: string, status: string, lastError?: string) =>
+    ipcRenderer.invoke('set-agent-status', id, status, lastError),
   getAgentIssues: (filters?: any) => ipcRenderer.invoke('get-agent-issues', filters),
   getAgentIssue: (id: string) => ipcRenderer.invoke('get-agent-issue', id),
   createAgentIssue: (data: any) => ipcRenderer.invoke('create-agent-issue', data),
@@ -147,7 +163,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   avGetProjects: () => ipcRenderer.invoke('av-get-projects'),
   avGetSessions: () => ipcRenderer.invoke('av-get-sessions'),
   avGetTopSessions: () => ipcRenderer.invoke('av-get-top-sessions'),
-  avGetSessionList: (opts?: { limit?: number; project?: string; search?: string }) => ipcRenderer.invoke('av-get-session-list', opts),
+  avGetSessionList: (opts?: { limit?: number; project?: string; search?: string }) =>
+    ipcRenderer.invoke('av-get-session-list', opts),
   avGetSessionDetail: (id: string) => ipcRenderer.invoke('av-get-session-detail', id),
   avGetSessionMessages: (id: string, limit?: number) => ipcRenderer.invoke('av-get-session-messages', id, limit),
   avSearch: (q: string, limit?: number) => ipcRenderer.invoke('av-search', q, limit),
@@ -157,58 +174,59 @@ contextBridge.exposeInMainWorld('electronAPI', {
   avRefresh: () => ipcRenderer.invoke('av-refresh'),
 
   // Command Center
-  ccLaunch: (opts: { projectPath: string; prompt: string; model?: string; maxBudget?: number; resumeSessionId?: string }) =>
-    ipcRenderer.invoke('cc:launch', opts),
-  ccRespond: (opts: { processId: string; response: string }) =>
-    ipcRenderer.invoke('cc:respond', opts),
-  ccDismiss: (opts: { processId: string }) =>
-    ipcRenderer.invoke('cc:dismiss', opts),
-  ccPark: (opts: { processId: string }) =>
-    ipcRenderer.invoke('cc:park', opts),
-  ccKill: (opts: { processId: string }) =>
-    ipcRenderer.invoke('cc:kill', opts),
+  ccLaunch: (opts: {
+    projectPath: string
+    prompt: string
+    model?: string
+    effort?: string
+    maxBudget?: number
+    resumeSessionId?: string
+  }) => ipcRenderer.invoke('cc:launch', opts),
+  ccRespond: (opts: { processId: string; response: string }) => ipcRenderer.invoke('cc:respond', opts),
+  ccDismiss: (opts: { processId: string }) => ipcRenderer.invoke('cc:dismiss', opts),
+  ccPark: (opts: { processId: string }) => ipcRenderer.invoke('cc:park', opts),
+  ccKill: (opts: { processId: string }) => ipcRenderer.invoke('cc:kill', opts),
   ccGetQueue: () => ipcRenderer.invoke('cc:get-queue'),
   ccGetLog: (opts: { processId: string }) => ipcRenderer.invoke('cc:get-log', opts),
-  ccGetHistory: (opts?: { filter?: string; limit?: number }) =>
-    ipcRenderer.invoke('cc:get-history', opts),
+  ccGetHistory: (opts?: { filter?: string; limit?: number }) => ipcRenderer.invoke('cc:get-history', opts),
   ccGetCrashedIds: () => ipcRenderer.invoke('cc:get-crashed-ids') as Promise<string[]>,
   ccGetDailyPrompts: () => ipcRenderer.invoke('cc:get-daily-prompts') as Promise<{ date: string; count: number }>,
   ccGetProjects: () => ipcRenderer.invoke('cc:get-projects'),
   ccGetProjectDescription: (opts: { projectPath: string }) => ipcRenderer.invoke('cc:get-project-description', opts),
   ccBrowseProject: () => ipcRenderer.invoke('cc:browse-project'),
   ccCreateProject: (opts: { name: string }) => ipcRenderer.invoke('cc:create-project', opts),
+  ccExecShell: (opts: { command: string; cwd: string }) =>
+    ipcRenderer.invoke('cc:exec-shell', opts) as Promise<{ stdout: string; stderr: string; code: number }>,
+  ccGetSettings: () => ipcRenderer.invoke('cc:get-settings'),
+  ccSaveSettings: (updates: any) => ipcRenderer.invoke('cc:save-settings', updates),
   onCCQueueUpdate: (callback: (queue: any[]) => void) => {
     const handler = (_: any, queue: any[]) => callback(queue)
     ipcRenderer.on('cc:queue-update', handler)
-    return () => { ipcRenderer.removeListener('cc:queue-update', handler) }
+    return () => {
+      ipcRenderer.removeListener('cc:queue-update', handler)
+    }
   },
 
   // Codex (GPT 5.4) Chat
   codexSend: (opts: { messages: { role: string; content: string }[]; projectPath?: string }) =>
     ipcRenderer.invoke('codex:send', opts),
-  codexReadTree: (opts: { projectPath: string }) =>
-    ipcRenderer.invoke('codex:read-tree', opts),
-  codexReadFile: (opts: { filePath: string }) =>
-    ipcRenderer.invoke('codex:read-file', opts),
-  codexReadFileForChat: (opts: { filePath: string }) =>
-    ipcRenderer.invoke('codex:read-file-for-chat', opts),
+  codexReadTree: (opts: { projectPath: string }) => ipcRenderer.invoke('codex:read-tree', opts),
+  codexReadFile: (opts: { filePath: string }) => ipcRenderer.invoke('codex:read-file', opts),
+  codexReadFileForChat: (opts: { filePath: string }) => ipcRenderer.invoke('codex:read-file-for-chat', opts),
 
   // Dual-Agent Collab
-  collabStart: (opts: { task: string; maxRounds?: number }) =>
-    ipcRenderer.invoke('collab:start', opts),
-  collabResume: (opts: { sessionId: string; maxRounds?: number }) =>
-    ipcRenderer.invoke('collab:resume', opts),
-  collabRespond: (opts: { sessionId: string; response: string }) =>
-    ipcRenderer.invoke('collab:respond', opts),
-  collabKill: (opts: { sessionId: string }) =>
-    ipcRenderer.invoke('collab:kill', opts),
+  collabStart: (opts: { task: string; maxRounds?: number }) => ipcRenderer.invoke('collab:start', opts),
+  collabResume: (opts: { sessionId: string; maxRounds?: number }) => ipcRenderer.invoke('collab:resume', opts),
+  collabRespond: (opts: { sessionId: string; response: string }) => ipcRenderer.invoke('collab:respond', opts),
+  collabKill: (opts: { sessionId: string }) => ipcRenderer.invoke('collab:kill', opts),
   collabGetSession: () => ipcRenderer.invoke('collab:get-session'),
-  collabGetHistory: (opts?: { limit?: number }) =>
-    ipcRenderer.invoke('collab:get-history', opts),
+  collabGetHistory: (opts?: { limit?: number }) => ipcRenderer.invoke('collab:get-history', opts),
   onCollabUpdate: (callback: (session: any) => void) => {
     const handler = (_: any, session: any) => callback(session)
     ipcRenderer.on('collab:update', handler)
-    return () => { ipcRenderer.removeListener('collab:update', handler) }
+    return () => {
+      ipcRenderer.removeListener('collab:update', handler)
+    }
   },
 
   // Notifications
@@ -223,5 +241,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Window controls
   closeWindow: () => ipcRenderer.send('close-window'),
-  minimizeWindow: () => ipcRenderer.send('minimize-window')
+  minimizeWindow: () => ipcRenderer.send('minimize-window'),
+
+  // Usage Coach
+  coachToggle: (enabled: boolean) => ipcRenderer.invoke('coach:toggle', enabled),
+  coachSaveTip: (tip: any) => ipcRenderer.invoke('coach:save-tip', tip),
+  coachClearDay: () => ipcRenderer.invoke('coach:clear-day'),
+  onCoachTips: (callback: (tips: any[]) => void) => {
+    const handler = (_: any, tips: any[]) => callback(tips)
+    ipcRenderer.on('coach:tips', handler)
+    return () => {
+      ipcRenderer.removeListener('coach:tips', handler)
+    }
+  },
+  onCoachStatus: (callback: (data: { status: string; sessionCount: number }) => void) => {
+    const handler = (_: any, data: any) => callback(data)
+    ipcRenderer.on('coach:status', handler)
+    return () => {
+      ipcRenderer.removeListener('coach:status', handler)
+    }
+  },
+  onCoachDaySummary: (callback: (summary: string) => void) => {
+    const handler = (_: any, summary: string) => callback(summary)
+    ipcRenderer.on('coach:day-summary', handler)
+    return () => {
+      ipcRenderer.removeListener('coach:day-summary', handler)
+    }
+  },
 })

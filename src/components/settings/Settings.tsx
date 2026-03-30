@@ -1,5 +1,7 @@
 import AIProviderSettings from './AIProviderSettings'
 import ChatGPTSettings from './ChatGPTSettings'
+import CCSettings from './CCSettings'
+import CoachSettings from './CoachSettings'
 
 const SHORTCUTS = [
   { key: 'X', label: 'Command Center' },
@@ -21,12 +23,20 @@ export default function Settings() {
       {/* ChatGPT Account */}
       <ChatGPTSettings />
 
+      {/* Command Center */}
+      <CCSettings />
+
+      {/* Usage Coach */}
+      <CoachSettings />
+
       {/* Keyboard Shortcuts */}
       <div className="mb-6 animate-stagger-in" style={{ animationDelay: '120ms' }}>
-        <label className="block text-[10px] uppercase tracking-widest text-muted font-display font-medium mb-2">Keyboard Shortcuts</label>
+        <label className="block text-[10px] uppercase tracking-widest text-muted font-display font-medium mb-2">
+          Keyboard Shortcuts
+        </label>
         <div className="glass-card rounded-xl p-3 hover-lift">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-            {SHORTCUTS.map(s => (
+            {SHORTCUTS.map((s) => (
               <div key={s.key} className="flex items-center gap-2">
                 <kbd className="min-w-[28px] px-1.5 py-0.5 rounded-md bg-surface-3 border border-white/[0.06] text-white/50 font-mono text-[10px] text-center">
                   {s.key}

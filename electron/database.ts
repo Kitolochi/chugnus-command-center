@@ -2,6 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import { app } from 'electron'
+import { getSecret, setSecret } from './secrets'
+import type { CoachDbState } from '../src/types'
 
 interface Task {
   id: number
@@ -236,7 +238,7 @@ interface Memory {
   title: string
   content: string
   topics: string[]
-  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual'
+  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual' | 'coach'
   sourceId: string | null
   sourcePreview: string
   importance: 1 | 2 | 3
@@ -266,6 +268,12 @@ export interface LLMSettings {
   openrouterApiKey: string
   primaryModel: string
   fastModel: string
+}
+
+export interface CCSettings {
+  defaultEffort: 'low' | 'medium' | 'high' | 'max'
+  defaultModel: string
+  autoInferModel: boolean
 }
 
 export interface TelegramSettings {
@@ -629,6 +637,7 @@ interface Database {
   memorySettings: MemorySettings
   welcomeDismissed: boolean
   llmSettings: LLMSettings
+  ccSettings: CCSettings
   telegramSettings: TelegramSettings
   bankConnections: BankConnection[]
   bankAccounts: BankAccount[]
@@ -659,6 +668,8 @@ interface Database {
   collabHistory: CollabHistoryEntry[]
   // Daily prompt counter
   dailyPrompts: { date: string; count: number }
+  // Usage Coach
+  coachState: CoachDbState
 }
 
 let db: Database
@@ -758,6 +769,16 @@ export function initDatabase(): Database {
       const dupsRemoved = beforeDedup - db.bankTransactions.length
       if (dupsRemoved > 0) console.log(`[db] Removed ${dupsRemoved} duplicate bank transactions`)
     }
+    // Auto-migrate: coachState
+    if (!db.coachState) {
+      db.coachState = {
+        dayAccumulator: '',
+        lastResetDate: '',
+        enabled: true,
+        globalTipsEmitted: [],
+        sessions: {},
+      }
+    }
     saveDatabase()
     } // end: if data valid
   } else {
@@ -805,6 +826,16 @@ export function initDatabase(): Database {
         primaryModel: 'claude-sonnet-4-5-20250929',
         fastModel: 'claude-haiku-4-5-20251001'
       }
+    }
+    saveDatabase()
+  }
+
+  // Initialize ccSettings if missing
+  if (!(db as any).ccSettings) {
+    db.ccSettings = {
+      defaultEffort: 'high',
+      defaultModel: 'claude-sonnet-4-5-20250929',
+      autoInferModel: true,
     }
     saveDatabase()
   }
@@ -1158,6 +1189,18 @@ export function initDatabase(): Database {
     saveDatabase()
   }
 
+  // Initialize coachState if missing
+  if (!(db as any).coachState) {
+    db.coachState = {
+      dayAccumulator: '',
+      lastResetDate: '',
+      enabled: true,
+      globalTipsEmitted: [],
+      sessions: {},
+    }
+    saveDatabase()
+  }
+
   // Initialize telegram settings if missing
   if (!(db as any).telegramSettings) {
     db.telegramSettings = { botToken: '', authorizedChatId: '', enabled: false }
@@ -1507,7 +1550,7 @@ export function getRecentNotes(limit: number = 7): DailyNote[] {
 
 // Twitter settings
 export function getTwitterSettings(): TwitterSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.twitter,
     bearerToken: getSecret('twitterBearerToken') || db.twitter.bearerToken || '',
@@ -1519,7 +1562,7 @@ export function getTwitterSettings(): TwitterSettings {
 }
 
 export function saveTwitterSettings(settings: Partial<TwitterSettings>): TwitterSettings {
-  const { setSecret } = require('./secrets')
+
   if (settings.bearerToken !== undefined) {
     setSecret('twitterBearerToken', settings.bearerToken)
     db.twitter.bearerToken = ''
@@ -1567,24 +1610,24 @@ export function removeRSSFeed(url: string): RSSFeed[] {
 }
 
 export function getClaudeApiKey(): string {
-  const { getSecret } = require('./secrets')
+
   return getSecret('claudeApiKey') || db.claudeApiKey || ''
 }
 
 export function saveClaudeApiKey(key: string): void {
-  const { setSecret } = require('./secrets')
+
   setSecret('claudeApiKey', key)
   db.claudeApiKey = ''
   saveDatabase()
 }
 
 export function getTavilyApiKey(): string {
-  const { getSecret } = require('./secrets')
+
   return getSecret('tavilyApiKey') || db.tavilyApiKey || ''
 }
 
 export function saveTavilyApiKey(key: string): void {
-  const { setSecret } = require('./secrets')
+
   setSecret('tavilyApiKey', key)
   db.tavilyApiKey = ''
   saveDatabase()
@@ -2162,9 +2205,37 @@ export function saveMemorySettings(updates: Partial<MemorySettings>): MemorySett
   return db.memorySettings
 }
 
+// Coach State
+export function getCoachState(): CoachDbState {
+  if (!db.coachState) {
+    db.coachState = {
+      dayAccumulator: '',
+      lastResetDate: '',
+      enabled: true,
+      globalTipsEmitted: [],
+      sessions: {},
+    }
+    saveDatabase()
+  }
+  return db.coachState
+}
+
+export function updateCoachState(updates: Partial<CoachDbState>): CoachDbState {
+  const defaults: CoachDbState = {
+    dayAccumulator: '',
+    lastResetDate: '',
+    enabled: true,
+    globalTipsEmitted: [],
+    sessions: {},
+  }
+  db.coachState = { ...(db.coachState || defaults), ...updates }
+  saveDatabase()
+  return db.coachState
+}
+
 // LLM Settings
 export function getLLMSettings(): LLMSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.llmSettings,
     geminiApiKey: getSecret('geminiApiKey') || db.llmSettings.geminiApiKey || '',
@@ -2174,7 +2245,7 @@ export function getLLMSettings(): LLMSettings {
 }
 
 export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
-  const { setSecret } = require('./secrets')
+
   if (updates.provider !== undefined) db.llmSettings.provider = updates.provider
   if (updates.geminiApiKey !== undefined) {
     setSecret('geminiApiKey', updates.geminiApiKey)
@@ -2194,9 +2265,22 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
   return getLLMSettings()
 }
 
+// CC Settings
+export function getCCSettings(): CCSettings {
+  return { ...db.ccSettings }
+}
+
+export function saveCCSettings(updates: Partial<CCSettings>): CCSettings {
+  if (updates.defaultEffort !== undefined) db.ccSettings.defaultEffort = updates.defaultEffort
+  if (updates.defaultModel !== undefined) db.ccSettings.defaultModel = updates.defaultModel
+  if (updates.autoInferModel !== undefined) db.ccSettings.autoInferModel = updates.autoInferModel
+  saveDatabase()
+  return getCCSettings()
+}
+
 // Telegram Settings
 export function getTelegramSettings(): TelegramSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.telegramSettings,
     botToken: getSecret('telegramBotToken') || db.telegramSettings.botToken || '',
@@ -2204,7 +2288,7 @@ export function getTelegramSettings(): TelegramSettings {
 }
 
 export function saveTelegramSettings(updates: Partial<TelegramSettings>): TelegramSettings {
-  const { setSecret } = require('./secrets')
+
   if (updates.botToken !== undefined) {
     setSecret('telegramBotToken', updates.botToken)
     db.telegramSettings.botToken = ''
