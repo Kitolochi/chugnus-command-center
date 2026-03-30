@@ -19,6 +19,8 @@ export interface CCQueueItem {
   startedAt: number
   updatedAt: number
   lastActivityAt: number
+  model?: string
+  effort?: string
 }
 
 export interface CCStreamMessage {
