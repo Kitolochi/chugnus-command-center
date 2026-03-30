@@ -1,21 +1,44 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Button, Badge } from '../ui'
-import { ChevronRight, Send, Check, Loader2, FileEdit, Terminal, X, Image, FileText, Film, File, Pause, AlertTriangle, Square } from 'lucide-react'
+import {
+  ChevronRight,
+  Send,
+  Check,
+  Loader2,
+  FileEdit,
+  Terminal,
+  X,
+  Image,
+  FileText,
+  Film,
+  File,
+  Pause,
+  AlertTriangle,
+  Square,
+} from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
+import MCPDialog from './MCPDialog'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
 
-function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () => void }) {
-  const Icon = att.type === 'image' ? Image
-    : att.type === 'video' ? Film
-    : att.type === 'text' ? FileText
-    : File
+const MODEL_LABELS: Record<string, string> = {
+  'claude-opus-4-6': 'Opus',
+  'claude-sonnet-4-5-20250929': 'Sonnet',
+  'claude-haiku-4-5-20251001': 'Haiku',
+}
 
-  const color = att.type === 'image' ? 'text-accent-purple'
-    : att.type === 'video' ? 'text-accent-rose'
-    : att.type === 'text' ? 'text-accent-blue'
-    : 'text-white/40'
+function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () => void }) {
+  const Icon = att.type === 'image' ? Image : att.type === 'video' ? Film : att.type === 'text' ? FileText : File
+
+  const color =
+    att.type === 'image'
+      ? 'text-accent-purple'
+      : att.type === 'video'
+        ? 'text-accent-rose'
+        : att.type === 'text'
+          ? 'text-accent-blue'
+          : 'text-white/40'
 
   return (
     <div className="flex items-center gap-1.5 bg-surface-3 border border-white/[0.06] rounded-lg px-2 py-1 group">
@@ -47,6 +70,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const [dragging, setDragging] = useState(false)
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [logEntries, setLogEntries] = useState<any[]>([])
+  const [mcpDialogOpen, setMcpDialogOpen] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dragCountRef = useRef(0)
   const prevProcessId = useRef(item.processId)
@@ -98,7 +122,12 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     return parts.join('\n\n')
   }
 
-  const [shellOutput, setShellOutput] = useState<{ command: string; stdout: string; stderr: string; code: number } | null>(null)
+  const [shellOutput, setShellOutput] = useState<{
+    command: string
+    stdout: string
+    stderr: string
+    code: number
+  } | null>(null)
   const [shellRunning, setShellRunning] = useState(false)
 
   const handleSlashCommand = async (cmd: string): Promise<boolean> => {
@@ -123,14 +152,27 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
       setShellRunning(false)
     }
 
-    if (name === 'mcp') { await runCli('claude mcp list', '/mcp'); return true }
-    if (name === 'agents') { await runCli('claude agents', '/agents'); return true }
-    if (name === 'doctor') { await runCli('claude doctor', '/doctor'); return true }
+    if (name === 'mcp') {
+      setMcpDialogOpen(true)
+      setResponse('')
+      return true
+    }
+    if (name === 'agents') {
+      await runCli('claude agents', '/agents')
+      return true
+    }
+    if (name === 'doctor') {
+      await runCli('claude doctor', '/doctor')
+      return true
+    }
 
     if (name === 'effort') {
       const valid = ['low', 'medium', 'high', 'max']
       if (!arg || !valid.includes(arg)) {
-        showResult('/effort', `Usage: /effort <${valid.join('|')}>\nSets thinking level. Restarts session with new effort.`)
+        showResult(
+          '/effort',
+          `Usage: /effort <${valid.join('|')}>\nSets thinking level. Restarts session with new effort.`
+        )
         return true
       }
       // Kill and relaunch with new effort
@@ -146,7 +188,11 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
 
     if (name === 'model') {
-      const aliases: Record<string, string> = { sonnet: 'claude-sonnet-4-5-20250929', opus: 'claude-opus-4-6', haiku: 'claude-haiku-4-5-20251001' }
+      const aliases: Record<string, string> = {
+        sonnet: 'claude-sonnet-4-5-20250929',
+        opus: 'claude-opus-4-6',
+        haiku: 'claude-haiku-4-5-20251001',
+      }
       const modelId = aliases[arg?.toLowerCase()] || arg
       if (!modelId) {
         showResult('/model', 'Usage: /model <sonnet|opus|haiku>\nSwitches model. Restarts session.')
@@ -164,49 +210,68 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
 
     if (name === 'name') {
-      if (!arg) { showResult('/name', 'Usage: /name <label>\nNames this session for easy identification.'); return true }
+      if (!arg) {
+        showResult('/name', 'Usage: /name <label>\nNames this session for easy identification.')
+        return true
+      }
       // Update the queue item's projectName display (cosmetic only)
       showResult('/name', `Session named: ${arg}`)
       return true
     }
 
     if (name === 'cost') {
-      showResult('/cost', `Session: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nFiles changed: ${item.filesChanged.length}`)
+      showResult(
+        '/cost',
+        `Session: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nFiles changed: ${item.filesChanged.length}`
+      )
       return true
     }
 
     if (name === 'status') {
       const elapsed = Math.round((Date.now() - item.startedAt) / 60000)
-      showResult('/status', `Status: ${item.status}\nProject: ${item.projectName}\nSession: ${item.sessionId || 'pending'}\nCost: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nElapsed: ${elapsed}m\nFiles: ${item.filesChanged.join(', ') || 'none'}`)
+      showResult(
+        '/status',
+        `Status: ${item.status}\nProject: ${item.projectName}\nSession: ${item.sessionId || 'pending'}\nCost: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nElapsed: ${elapsed}m\nFiles: ${item.filesChanged.join(', ') || 'none'}`
+      )
       return true
     }
 
-    if (name === 'clear') { kill(item.processId); setResponse(''); return true }
+    if (name === 'clear') {
+      kill(item.processId)
+      setResponse('')
+      return true
+    }
 
     if (name === 'compact') {
-      showResult('/compact', 'Context management is automatic in managed sessions.\nClaude compresses context when approaching limits.')
+      showResult(
+        '/compact',
+        'Context management is automatic in managed sessions.\nClaude compresses context when approaching limits.'
+      )
       return true
     }
 
     if (name === 'help') {
-      showResult('/help', [
-        'Session:',
-        '  /effort <low|medium|high|max>  Set thinking level (restarts)',
-        '  /model <sonnet|opus|haiku>     Switch model (restarts)',
-        '  /name <label>                  Name this session',
-        '  /cost                          Session cost and stats',
-        '  /status                        Full session info',
-        '  /clear                         Kill this session',
-        '  /compact                       Context info',
-        '',
-        'CLI:',
-        '  /mcp                           List MCP servers',
-        '  /agents                        List configured agents',
-        '  /doctor                        Claude Code health check',
-        '',
-        'Shell:',
-        '  !command                       Run in project dir',
-      ].join('\n'))
+      showResult(
+        '/help',
+        [
+          'Session:',
+          '  /effort <low|medium|high|max>  Set thinking level (restarts)',
+          '  /model <sonnet|opus|haiku>     Switch model (restarts)',
+          '  /name <label>                  Name this session',
+          '  /cost                          Session cost and stats',
+          '  /status                        Full session info',
+          '  /clear                         Kill this session',
+          '  /compact                       Context info',
+          '',
+          'CLI:',
+          '  /mcp                           List MCP servers',
+          '  /agents                        List configured agents',
+          '  /doctor                        Claude Code health check',
+          '',
+          'Shell:',
+          '  !command                       Run in project dir',
+        ].join('\n')
+      )
       return true
     }
 
@@ -252,7 +317,10 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   }
 
   const handleKill = () => {
-    if (!confirmKill) { setConfirmKill(true); return }
+    if (!confirmKill) {
+      setConfirmKill(true)
+      return
+    }
     kill(item.processId)
     setConfirmKill(false)
   }
@@ -284,7 +352,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
 
     if (newAttachments.length > 0) {
-      setAttachments(prev => [...prev, ...newAttachments])
+      setAttachments((prev) => [...prev, ...newAttachments])
     }
     setLoadingFiles(false)
   }
@@ -334,26 +402,29 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
         let binary = ''
         for (let j = 0; j < bytes.length; j++) binary += String.fromCharCode(bytes[j])
         const base64 = btoa(binary)
-        setAttachments(prev => [...prev, {
-          type: 'image',
-          name,
-          mimeType,
-          sizeKb: Math.round(bytes.length / 1024),
-          base64,
-        }])
+        setAttachments((prev) => [
+          ...prev,
+          {
+            type: 'image',
+            name,
+            mimeType,
+            sizeKb: Math.round(bytes.length / 1024),
+            base64,
+          },
+        ])
         return
       }
     }
   }
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index))
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
   // Re-render every 30s to keep elapsed timers fresh
   const [, setTick] = useState(0)
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000)
+    const id = setInterval(() => setTick((t) => t + 1), 30000)
     return () => clearInterval(id)
   }, [])
 
@@ -372,9 +443,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     errored: 'Error',
   }[item.status]
 
-  const displayText = item.status === 'errored'
-    ? item.errorMessage || 'Unknown error'
-    : (item.resultText || item.prompt)
+  const displayText = item.status === 'errored' ? item.errorMessage || 'Unknown error' : item.resultText || item.prompt
 
   // Truncate display
   const truncated = false
@@ -386,7 +455,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     let total = response.length
     for (const att of attachments) {
       if (att.type === 'text' && att.textContent) total += att.textContent.length
-      else if (att.base64) total += att.base64.length * 0.75 // base64 → bytes
+      else if (att.base64)
+        total += att.base64.length * 0.75 // base64 → bytes
       else total += att.sizeKb * 1024
     }
     return total
@@ -399,24 +469,48 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   return (
     <div className="relative">
       {showConfetti && <ConfettiOverlay color={item.projectColor} onDone={() => setShowConfetti(false)} />}
-      <div className={`bg-surface-1 border rounded-xl p-4 ${
-        item.status === 'awaiting_input' ? 'border-accent-amber/30' :
-        item.status === 'errored' ? 'border-accent-red/30' :
-        'border-white/[0.06]'
-      }`}>
+      <div
+        className={`bg-surface-1 border rounded-xl p-4 ${
+          item.status === 'awaiting_input'
+            ? 'border-accent-amber/30'
+            : item.status === 'errored'
+              ? 'border-accent-red/30'
+              : 'border-white/[0.06]'
+        }`}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Badge variant={
-              (['blue', 'purple', 'red', 'amber'] as const).includes(item.projectColor as any)
-                ? (item.projectColor as 'blue' | 'purple' | 'red' | 'amber')
-                : item.projectColor === 'green' ? 'emerald' : 'default'
-            }>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge
+              variant={
+                (['blue', 'purple', 'red', 'amber'] as const).includes(item.projectColor as any)
+                  ? (item.projectColor as 'blue' | 'purple' | 'red' | 'amber')
+                  : item.projectColor === 'green'
+                    ? 'emerald'
+                    : 'default'
+              }
+            >
               {item.projectName}
             </Badge>
             <span className={`text-[10px] ${statusColor}`}>{statusLabel}</span>
-            {item.status === 'working' && !isStale && <Loader2 size={10} className="text-accent-emerald animate-spin" />}
+            {item.status === 'working' && !isStale && (
+              <Loader2 size={10} className="text-accent-emerald animate-spin" />
+            )}
             {isStale && <AlertTriangle size={10} className="text-accent-amber" />}
+            {(item.model || item.effort) && (
+              <div className="flex items-center gap-1">
+                {item.model && (
+                  <span className="bg-surface-2 border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[10px] text-white/40 font-mono">
+                    {MODEL_LABELS[item.model] ?? item.model.slice(0, 12)}
+                  </span>
+                )}
+                {item.effort && (
+                  <span className="bg-surface-2 border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[10px] text-white/40 font-mono">
+                    {item.effort.charAt(0).toUpperCase() + item.effort.slice(1)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[9px] text-white/30">${item.costUsd.toFixed(2)}</span>
@@ -431,24 +525,32 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           dangerouslySetInnerHTML={{ __html: renderMarkdown(showFullText ? displayText : shownText) }}
         />
         {truncated && !showFullText && (
-          <button onClick={() => setShowFullText(true)} className="text-accent-blue text-[10px] mb-3">Show more</button>
+          <button onClick={() => setShowFullText(true)} className="text-accent-blue text-[10px] mb-3">
+            Show more
+          </button>
         )}
 
         {/* Expand toggles */}
         <div className="flex items-center gap-3 mb-3 text-[10px]">
           {item.filesChanged.length > 0 && (
-            <button onClick={() => setShowFiles(!showFiles)} className="text-white/40 hover:text-white/60 flex items-center gap-1">
+            <button
+              onClick={() => setShowFiles(!showFiles)}
+              className="text-white/40 hover:text-white/60 flex items-center gap-1"
+            >
               <ChevronRight size={10} className={`transition-transform ${showFiles ? 'rotate-90' : ''}`} />
               Files changed ({item.filesChanged.length})
             </button>
           )}
-          <button onClick={async () => {
-            if (!showLog) {
-              const log = await window.electronAPI.ccGetLog({ processId: item.processId })
-              setLogEntries(log)
-            }
-            setShowLog(!showLog)
-          }} className="text-white/40 hover:text-white/60 flex items-center gap-1">
+          <button
+            onClick={async () => {
+              if (!showLog) {
+                const log = await window.electronAPI.ccGetLog({ processId: item.processId })
+                setLogEntries(log)
+              }
+              setShowLog(!showLog)
+            }}
+            className="text-white/40 hover:text-white/60 flex items-center gap-1"
+          >
             <ChevronRight size={10} className={`transition-transform ${showLog ? 'rotate-90' : ''}`} />
             Full log
           </button>
@@ -470,19 +572,29 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           <div className="bg-surface-0 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto space-y-2">
             {logEntries.length === 0 ? (
               <p className="text-[10px] text-white/30">No log entries.</p>
-            ) : logEntries.map((msg, i) => (
-              <div key={i} className={`text-[10px] ${
-                msg.type === 'assistant' ? 'text-white/70' :
-                msg.type === 'tool_use' ? 'text-accent-cyan/70 font-mono' :
-                'text-white/40'
-              }`}>
-                {msg.type === 'tool_use' ? (
-                  <span><Terminal size={9} className="inline mr-1" />{msg.toolName}: {msg.toolInput?.slice(0, 100)}</span>
-                ) : (
-                  msg.text?.slice(0, 300)
-                )}
-              </div>
-            ))}
+            ) : (
+              logEntries.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`text-[10px] ${
+                    msg.type === 'assistant'
+                      ? 'text-white/70'
+                      : msg.type === 'tool_use'
+                        ? 'text-accent-cyan/70 font-mono'
+                        : 'text-white/40'
+                  }`}
+                >
+                  {msg.type === 'tool_use' ? (
+                    <span>
+                      <Terminal size={9} className="inline mr-1" />
+                      {msg.toolName}: {msg.toolInput?.slice(0, 100)}
+                    </span>
+                  ) : (
+                    msg.text?.slice(0, 300)
+                  )}
+                </div>
+              ))
+            )}
           </div>
         )}
 
@@ -585,7 +697,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-red/5 border border-accent-red/15">
                 <AlertTriangle size={10} className="text-accent-red flex-shrink-0" />
                 <span className="text-[10px] text-accent-red/80">
-                  Message too large ({(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB) — remove files or use smaller ones (max 5MB)
+                  Message too large ({(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB) — remove files or use smaller
+                  ones (max 5MB)
                 </span>
               </div>
             )}
@@ -598,10 +711,19 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               <textarea
                 ref={inputRef}
                 value={response}
-                onChange={e => setResponse(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                onChange={(e) => setResponse(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSend()
+                  }
+                }}
                 onPaste={handlePaste}
-                placeholder={attachments.length > 0 ? 'Add a message (optional)...' : 'Type prompt, /help, !shell, or drop files...'}
+                placeholder={
+                  attachments.length > 0
+                    ? 'Add a message (optional)...'
+                    : 'Type prompt, /help, !shell, or drop files...'
+                }
                 className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
                 rows={1}
               />
@@ -631,6 +753,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           </div>
         </div>
       </div>
+      <MCPDialog open={mcpDialogOpen} onClose={() => setMcpDialogOpen(false)} projectPath={item.projectPath ?? ''} />
     </div>
   )
 }
