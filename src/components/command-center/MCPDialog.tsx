@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Dialog from '../ui/Dialog'
 import { Loader2, RefreshCw, ExternalLink, Trash2 } from 'lucide-react'
 
@@ -53,6 +53,7 @@ export default function MCPDialog({ open, onClose, projectPath }: MCPDialogProps
   const [error, setError] = useState<string | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [actionRunning, setActionRunning] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const cwd = projectPath || (typeof process !== 'undefined' ? process.env.USERPROFILE || '~' : '~')
 
@@ -79,6 +80,14 @@ export default function MCPDialog({ open, onClose, projectPath }: MCPDialogProps
   useEffect(() => {
     if (open) fetchList()
   }, [open, fetchList])
+
+  useEffect(() => {
+    if (open && containerRef.current) {
+      containerRef.current.focus()
+    }
+  }, [open])
+
+  const sanitizeName = (name: string) => name.replace(/[^a-zA-Z0-9_.-]/g, '')
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (servers.length === 0) return
@@ -107,9 +116,12 @@ export default function MCPDialog({ open, onClose, projectPath }: MCPDialogProps
   const handleRemove = async (name: string) => {
     setActionRunning(true)
     try {
-      await window.electronAPI.ccExecShell({ command: `claude mcp remove ${name}`, cwd })
-      await fetchList()
-    } catch {}
+      const result = await window.electronAPI.ccExecShell({ command: `claude mcp remove ${sanitizeName(name)}`, cwd })
+      if (result.code !== 0 && result.stderr) setError(result.stderr)
+    } catch (err: any) {
+      setError(err.message)
+    }
+    await fetchList()
     setActionRunning(false)
   }
 
@@ -119,6 +131,7 @@ export default function MCPDialog({ open, onClose, projectPath }: MCPDialogProps
         className="bg-surface-1 border border-white/[0.08] rounded-xl w-[480px] max-w-[90vw] p-5 shadow-2xl"
         onKeyDown={handleKeyDown}
         tabIndex={-1}
+        ref={containerRef}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
