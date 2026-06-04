@@ -702,6 +702,22 @@ const defaultCategories: Category[] = [
   { id: 7, name: 'Daily', color: '#14b8a6', icon: '📋', sort_order: 7 },
 ]
 
+/**
+ * A usable DB file must parse as a JSON object. Corruption from interrupted
+ * writes leaves the file empty, whitespace-only, or NUL-filled — none of which
+ * `.trim().length` reliably catches (JS trim does not strip NUL bytes), so
+ * validate by parsing rather than by length.
+ */
+export function isValidDbJson(data: string): boolean {
+  if (!data || data.trim().length < 10) return false
+  try {
+    const parsed = JSON.parse(data)
+    return parsed != null && typeof parsed === 'object'
+  } catch {
+    return false
+  }
+}
+
 export function initDatabase(): Database {
   dbPath = path.join(app.getPath('userData'), 'chugnus-command-center.json')
 
@@ -709,9 +725,10 @@ export function initDatabase(): Database {
     let data = fs.readFileSync(dbPath, 'utf-8')
 
     // Crash recovery: if file is empty/corrupt, restore from latest backup
-    if (!data || data.trim().length < 10) {
+    if (!isValidDbJson(data)) {
       console.warn('[db] Database file is empty or corrupt, attempting backup recovery...')
       const backupDir = path.join(path.dirname(dbPath), 'backups')
+      let recovered = false
       if (fs.existsSync(backupDir)) {
         const backups = fs.readdirSync(backupDir)
           .filter(f => f.startsWith('chugnus-cc-') && f.endsWith('.json'))
@@ -720,23 +737,24 @@ export function initDatabase(): Database {
         for (const backup of backups) {
           try {
             const backupData = fs.readFileSync(path.join(backupDir, backup), 'utf-8')
-            if (backupData.length > 100) {
-              JSON.parse(backupData) // validate it's valid JSON
+            if (isValidDbJson(backupData)) {
               data = backupData
               fs.writeFileSync(dbPath, data, 'utf-8')
               console.log(`[db] Restored from backup: ${backup}`)
+              recovered = true
               break
             }
           } catch {}
         }
       }
-      if (!data || data.trim().length < 10) {
+      if (!recovered) {
         console.error('[db] No valid backup found, creating fresh database')
-        fs.unlinkSync(dbPath) // remove corrupt file, fall through to fresh creation
+        try { fs.unlinkSync(dbPath) } catch {} // remove corrupt file, fall through to fresh creation
+        data = ''
       }
     }
 
-    if (data && data.trim().length >= 10) {
+    if (isValidDbJson(data)) {
     db = JSON.parse(data)
     if (!db.dailyNotes) {
       db.dailyNotes = []
@@ -1245,9 +1263,18 @@ function saveDatabase() {
     console.error('[db] Backup failed:', err)
   }
 
-  // Write atomically: write to temp file, then rename
+  // Write atomically: write to a temp file, flush it to disk, then rename.
+  // The fsync is essential — without it NTFS can commit the rename metadata
+  // ahead of the data blocks, so a crash/power-loss/hard-kill leaves the live
+  // file zero-filled (the corruption that was crashing startup).
   const tmpPath = dbPath + '.tmp'
-  fs.writeFileSync(tmpPath, data, 'utf-8')
+  const fd = fs.openSync(tmpPath, 'w')
+  try {
+    fs.writeFileSync(fd, data, 'utf-8')
+    fs.fsyncSync(fd)
+  } finally {
+    fs.closeSync(fd)
+  }
   fs.renameSync(tmpPath, dbPath)
 }
 
