@@ -39,7 +39,15 @@ function projectNameFromEncoded(encoded: string): string {
   return parts[parts.length - 1] || encoded
 }
 
-function SessionRow({ session, expandedId, onExpand, onResume, loadingMessages, expandedMessages, showBadge = true }: {
+function SessionRow({
+  session,
+  expandedId,
+  onExpand,
+  onResume,
+  loadingMessages,
+  expandedMessages,
+  showBadge = true,
+}: {
   session: CLISession
   expandedId: string | null
   onExpand: (id: string) => void
@@ -55,21 +63,27 @@ function SessionRow({ session, expandedId, onExpand, onResume, loadingMessages, 
         className="bg-surface-1 border border-white/[0.04] rounded-lg px-4 py-2.5 flex items-center justify-between cursor-pointer hover:border-white/[0.08] transition-all"
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <ChevronRight size={10} className={`text-white/20 transition-transform flex-shrink-0 ${expandedId === session.sessionId ? 'rotate-90' : ''}`} />
+          <ChevronRight
+            size={10}
+            className={`text-white/20 transition-transform flex-shrink-0 ${expandedId === session.sessionId ? 'rotate-90' : ''}`}
+          />
           {showBadge && <Badge>{projectNameFromEncoded(session.project)}</Badge>}
-          <span className="text-[10px] text-white/60 truncate">
-            {session.firstPrompt || 'No prompt'}
-          </span>
+          <span className="text-[10px] text-white/60 truncate">{session.firstPrompt || 'No prompt'}</span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0 ml-2">
           <span className="text-[9px] text-white/20 flex items-center gap-1">
-            <MessageSquare size={8} />{session.messageCount}
+            <MessageSquare size={8} />
+            {session.messageCount}
           </span>
           <span className="text-[9px] text-white/20 flex items-center gap-1">
-            <Clock size={8} />{relativeTime(session.modified)}
+            <Clock size={8} />
+            {relativeTime(session.modified)}
           </span>
           <button
-            onClick={e => { e.stopPropagation(); onResume(session) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onResume(session)
+            }}
             title="Resume this session"
             className="p-1 rounded text-white/20 hover:text-accent-green hover:bg-white/[0.04] transition-colors"
           >
@@ -86,7 +100,9 @@ function SessionRow({ session, expandedId, onExpand, onResume, loadingMessages, 
           ) : (
             expandedMessages.map((msg, i) => (
               <div key={i} className={`text-[11px] ${msg.type === 'user' ? 'text-white/70' : 'text-white/40'}`}>
-                <span className={`text-[9px] font-medium uppercase mr-2 ${msg.type === 'user' ? 'text-accent-blue' : 'text-accent-purple'}`}>
+                <span
+                  className={`text-[9px] font-medium uppercase mr-2 ${msg.type === 'user' ? 'text-accent-blue' : 'text-accent-purple'}`}
+                >
                   {msg.type}
                 </span>
                 {msg.content.slice(0, 300)}
@@ -101,7 +117,17 @@ function SessionRow({ session, expandedId, onExpand, onResume, loadingMessages, 
 }
 
 export default function HistoryView() {
-  const { history, historyFilter, projects, loadHistory, loadProjects, setHistoryFilter, launch, setActiveView } = useCommandCenterStore()
+  const {
+    history,
+    historyFilter,
+    projects,
+    selectedProject,
+    loadHistory,
+    loadProjects,
+    setHistoryFilter,
+    launch,
+    setActiveView,
+  } = useCommandCenterStore()
   const [cliSessions, setCliSessions] = useState<CLISession[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandedMessages, setExpandedMessages] = useState<CLISessionMessage[]>([])
@@ -115,6 +141,14 @@ export default function HistoryView() {
     loadProjects()
     loadCliSessions()
   }, [])
+
+  useEffect(() => {
+    if (selectedProject) {
+      setHistoryFilter(selectedProject)
+    } else {
+      setHistoryFilter(null)
+    }
+  }, [selectedProject])
 
   const loadCliSessions = async () => {
     const sessions = await window.electronAPI.getCliSessions()
@@ -135,7 +169,7 @@ export default function HistoryView() {
   }
 
   const handleResumeSession = async (session: CLISession) => {
-    const matchedProject = projects.find(p => pathToEncoded(p.path) === session.project)
+    const matchedProject = projects.find((p) => pathToEncoded(p.path) === session.project)
     if (!matchedProject) {
       setResumeError(`Project not found for "${session.project}"`)
 
@@ -143,7 +177,9 @@ export default function HistoryView() {
       return
     }
     try {
-      await launch(matchedProject.path, session.firstPrompt || 'Continue where we left off.', { resumeSessionId: session.sessionId })
+      await launch(matchedProject.path, session.firstPrompt || 'Continue where we left off.', {
+        resumeSessionId: session.sessionId,
+      })
       setActiveView('queue')
     } catch (err: any) {
       setResumeError(err.message || 'Failed to resume session')
@@ -151,13 +187,17 @@ export default function HistoryView() {
     }
   }
 
-  const dateCutoff = dateFilter === 'today' ? Date.now() - 86400000
-    : dateFilter === '7d' ? Date.now() - 7 * 86400000
-    : dateFilter === '30d' ? Date.now() - 30 * 86400000
-    : 0
+  const dateCutoff =
+    dateFilter === 'today'
+      ? Date.now() - 86400000
+      : dateFilter === '7d'
+        ? Date.now() - 7 * 86400000
+        : dateFilter === '30d'
+          ? Date.now() - 30 * 86400000
+          : 0
 
   // Filter CLI sessions by project + date
-  const filteredSessions = cliSessions.filter(s => {
+  const filteredSessions = cliSessions.filter((s) => {
     if (historyFilter && s.project !== pathToEncoded(historyFilter)) return false
     if (dateCutoff && new Date(s.modified).getTime() < dateCutoff) return false
     return true
@@ -190,7 +230,7 @@ export default function HistoryView() {
     for (const [, gid] of groupMap) {
       gidToSize.set(gid, (gidToSize.get(gid) || 0) + 1)
     }
-    return sorted.map(s => ({
+    return sorted.map((s) => ({
       session: s,
       isConcurrent: (gidToSize.get(groupMap.get(s.sessionId)!) || 1) > 1,
       groupId: groupMap.get(s.sessionId)!,
@@ -206,21 +246,23 @@ export default function HistoryView() {
       )}
       {/* Filter + Tab toggle */}
       <div className="flex items-center gap-3 mb-3">
-        <select
-          value={historyFilter || ''}
-          onChange={e => setHistoryFilter(e.target.value || null)}
-          className="bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-1.5 text-[10px] text-white/70 focus:outline-none"
-        >
-          <option value="">All Projects</option>
-          {projects.map(p => (
-            <option key={p.path} value={p.path}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        {!selectedProject && (
+          <select
+            value={historyFilter || ''}
+            onChange={(e) => setHistoryFilter(e.target.value || null)}
+            className="bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-1.5 text-[10px] text-white/70 focus:outline-none"
+          >
+            <option value="">All Projects</option>
+            {projects.map((p) => (
+              <option key={p.path} value={p.path}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           value={dateFilter}
-          onChange={e => setDateFilter(e.target.value as any)}
+          onChange={(e) => setDateFilter(e.target.value as any)}
           className="bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-1.5 text-[10px] text-white/70 focus:outline-none"
         >
           <option value="all">All Time</option>
@@ -266,7 +308,10 @@ export default function HistoryView() {
                   const created = new Date(session.modified)
                   rows.push(
                     <div key={`g-${groupId}`} className="flex items-center gap-2 pt-2 pb-0.5 px-1">
-                      <span className="text-[9px] text-white/25 font-mono">{created.toLocaleDateString()} {created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[9px] text-white/25 font-mono">
+                        {created.toLocaleDateString()}{' '}
+                        {created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                       <div className="flex-1 border-t border-accent-blue/10" />
                     </div>
                   )
@@ -274,8 +319,19 @@ export default function HistoryView() {
                 lastGroupId = groupId
 
                 rows.push(
-                  <div key={session.sessionId} className={isConcurrent ? 'ml-4 border-l-2 border-accent-blue/15 pl-2' : ''}>
-                    <SessionRow session={session} expandedId={expandedId} onExpand={handleExpandSession} onResume={handleResumeSession} loadingMessages={loadingMessages} expandedMessages={expandedMessages} showBadge={true} />
+                  <div
+                    key={session.sessionId}
+                    className={isConcurrent ? 'ml-4 border-l-2 border-accent-blue/15 pl-2' : ''}
+                  >
+                    <SessionRow
+                      session={session}
+                      expandedId={expandedId}
+                      onExpand={handleExpandSession}
+                      onResume={handleResumeSession}
+                      loadingMessages={loadingMessages}
+                      expandedMessages={expandedMessages}
+                      showBadge={true}
+                    />
                   </div>
                 )
               }
@@ -284,32 +340,42 @@ export default function HistoryView() {
             })()}
           </div>
         )
+      ) : /* Command Center History */
+      history.length === 0 ? (
+        <p className="text-[11px] text-white/30 text-center py-8">
+          No Command Center history yet. Launch a task to get started.
+        </p>
       ) : (
-        /* Command Center History */
-        history.length === 0 ? (
-          <p className="text-[11px] text-white/30 text-center py-8">No Command Center history yet. Launch a task to get started.</p>
-        ) : (
-          <div className="space-y-1">
-            {/* Parked section */}
-            {history.filter(e => e.status === 'parked').length > 0 && (
-              <div className="mb-3">
-                <div className="flex items-center gap-2 py-1.5 px-1 mb-1">
-                  <span className="text-[10px] font-accent text-accent-amber tracking-wide">Parked</span>
-                  <div className="flex-1 border-t border-accent-amber/10" />
-                </div>
-                {history.filter(e => e.status === 'parked').map(entry => (
-                  <div key={entry.id} className="bg-surface-1 border border-accent-amber/10 rounded-lg px-4 py-2.5 flex items-center justify-between mb-1">
+        <div className="space-y-1">
+          {/* Parked section */}
+          {history.filter((e) => e.status === 'parked').length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 py-1.5 px-1 mb-1">
+                <span className="text-[10px] font-accent text-accent-amber tracking-wide">Parked</span>
+                <div className="flex-1 border-t border-accent-amber/10" />
+              </div>
+              {history
+                .filter((e) => e.status === 'parked')
+                .map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="bg-surface-1 border border-accent-amber/10 rounded-lg px-4 py-2.5 flex items-center justify-between mb-1"
+                  >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Badge>{entry.projectName}</Badge>
                       <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                      <span className="text-[9px] text-white/20">{new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}</span>
+                      <span className="text-[9px] text-white/20">
+                        {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
+                      </span>
                       {entry.sessionId && (
                         <button
                           onClick={async () => {
                             try {
-                              await launch(entry.projectPath, 'Continue where we left off.', { resumeSessionId: entry.sessionId })
+                              await launch(entry.projectPath, 'Continue where we left off.', {
+                                resumeSessionId: entry.sessionId,
+                              })
                               setActiveView('queue')
                             } catch (err: any) {
                               setResumeError(err.message || 'Failed to resume')
@@ -324,18 +390,22 @@ export default function HistoryView() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
+          )}
 
-            {/* Completed section */}
-            {history.filter(e => e.status === 'completed').length > 0 && (
-              <div className="mb-3">
-                <div className="flex items-center gap-2 py-1.5 px-1 mb-1">
-                  <span className="text-[10px] font-accent text-accent-emerald tracking-wide">Completed</span>
-                  <span className="text-[9px] text-white/20">{history.filter(e => e.status === 'completed').length}</span>
-                  <div className="flex-1 border-t border-accent-emerald/10" />
-                </div>
-                {history.filter(e => e.status === 'completed').map(entry => (
+          {/* Completed section */}
+          {history.filter((e) => e.status === 'completed').length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 py-1.5 px-1 mb-1">
+                <span className="text-[10px] font-accent text-accent-emerald tracking-wide">Completed</span>
+                <span className="text-[9px] text-white/20">
+                  {history.filter((e) => e.status === 'completed').length}
+                </span>
+                <div className="flex-1 border-t border-accent-emerald/10" />
+              </div>
+              {history
+                .filter((e) => e.status === 'completed')
+                .map((entry) => (
                   <div key={entry.id}>
                     <div
                       onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
@@ -348,20 +418,24 @@ export default function HistoryView() {
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0 ml-2">
                         <span className="text-[9px] text-white/20 flex items-center gap-1">
-                          <DollarSign size={8} />{entry.costUsd.toFixed(2)}
+                          <DollarSign size={8} />
+                          {entry.costUsd.toFixed(2)}
                         </span>
                         <span className="text-[9px] text-white/20 flex items-center gap-1">
-                          <FileEdit size={8} />{entry.filesChanged.length}
+                          <FileEdit size={8} />
+                          {entry.filesChanged.length}
                         </span>
                         <span className="text-[9px] text-white/20">
                           {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
                         </span>
                         {entry.sessionId && (
                           <button
-                            onClick={async e => {
+                            onClick={async (e) => {
                               e.stopPropagation()
                               try {
-                                await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', { resumeSessionId: entry.sessionId })
+                                await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', {
+                                  resumeSessionId: entry.sessionId,
+                                })
                                 setActiveView('queue')
                               } catch (err: any) {
                                 setResumeError(err.message || 'Failed to resume session')
@@ -377,21 +451,25 @@ export default function HistoryView() {
                       </div>
                     </div>
                     {expandedId === entry.id && (
-                      <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-2 mb-1 space-y-2">
+                      <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-2 mb-1 max-h-72 overflow-y-auto space-y-2">
                         <div>
                           <span className="text-[9px] text-white/30 uppercase">Prompt</span>
                           <p className="text-[11px] text-white/60 mt-0.5">{entry.prompt}</p>
                         </div>
                         <div>
                           <span className="text-[9px] text-white/30 uppercase">Summary</span>
-                          <p className="text-[11px] text-white/60 mt-0.5">{entry.summary}</p>
+                          <p className="text-[11px] text-white/60 mt-0.5 max-h-32 overflow-y-auto">{entry.summary}</p>
                         </div>
                         {entry.filesChanged.length > 0 && (
                           <div>
-                            <span className="text-[9px] text-white/30 uppercase">Files ({entry.filesChanged.length})</span>
+                            <span className="text-[9px] text-white/30 uppercase">
+                              Files ({entry.filesChanged.length})
+                            </span>
                             <div className="mt-1 space-y-0.5">
                               {entry.filesChanged.map((f, i) => (
-                                <div key={i} className="text-[10px] text-white/40 font-mono">{f}</div>
+                                <div key={i} className="text-[10px] text-white/40 font-mono">
+                                  {f}
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -407,147 +485,156 @@ export default function HistoryView() {
                     )}
                   </div>
                 ))}
-              </div>
-            )}
-            {(() => {
-              // Timeline: everything except completed/parked (those have their own sections)
-              const remaining = history.filter(e => e.status !== 'completed' && e.status !== 'parked')
-              if (remaining.length === 0) return null
+            </div>
+          )}
+          {(() => {
+            // Timeline: everything except completed/parked (those have their own sections)
+            const remaining = history.filter((e) => e.status !== 'completed' && e.status !== 'parked')
+            if (remaining.length === 0) return null
 
-              // Mark concurrent CC entries using same overlap logic
-              const sorted = [...remaining].sort((a, b) => b.startedAt - a.startedAt)
-              const chrono = [...sorted].reverse()
-              const groupMap = new Map<string, number>()
-              let gid = 0
-              const groups: { start: number; end: number }[] = []
-              for (const e of chrono) {
-                const eEnd = e.completedAt || Date.now()
-                const last = groups[groups.length - 1]
-                if (last && e.startedAt <= last.end) {
-                  last.end = Math.max(last.end, eEnd)
-                  groupMap.set(e.id, gid)
-                } else {
-                  gid++
-                  groups.push({ start: e.startedAt, end: eEnd })
-                  groupMap.set(e.id, gid)
-                }
+            // Mark concurrent CC entries using same overlap logic
+            const sorted = [...remaining].sort((a, b) => b.startedAt - a.startedAt)
+            const chrono = [...sorted].reverse()
+            const groupMap = new Map<string, number>()
+            let gid = 0
+            const groups: { start: number; end: number }[] = []
+            for (const e of chrono) {
+              const eEnd = e.completedAt || Date.now()
+              const last = groups[groups.length - 1]
+              if (last && e.startedAt <= last.end) {
+                last.end = Math.max(last.end, eEnd)
+                groupMap.set(e.id, gid)
+              } else {
+                gid++
+                groups.push({ start: e.startedAt, end: eEnd })
+                groupMap.set(e.id, gid)
               }
-              const gidToSize = new Map<number, number>()
-              for (const [, g] of groupMap) gidToSize.set(g, (gidToSize.get(g) || 0) + 1)
+            }
+            const gidToSize = new Map<number, number>()
+            for (const [, g] of groupMap) gidToSize.set(g, (gidToSize.get(g) || 0) + 1)
 
-              let lastGid: number | null = null
-              const rows: React.ReactNode[] = []
+            let lastGid: number | null = null
+            const rows: React.ReactNode[] = []
+            rows.push(
+              <div key="other-header" className="flex items-center gap-2 py-1.5 px-1 mb-1">
+                <span className="text-[10px] font-accent text-white/30 tracking-wide">Other</span>
+                <span className="text-[9px] text-white/20">{sorted.length}</span>
+                <div className="flex-1 border-t border-white/[0.04]" />
+              </div>
+            )
+            for (const entry of sorted) {
+              const entryGid = groupMap.get(entry.id)!
+              const isConcurrent = (gidToSize.get(entryGid) || 1) > 1
+              const showHeader = isConcurrent && entryGid !== lastGid
+              lastGid = entryGid
+              const ts = new Date(entry.startedAt)
+
               rows.push(
-                <div key="other-header" className="flex items-center gap-2 py-1.5 px-1 mb-1">
-                  <span className="text-[10px] font-accent text-white/30 tracking-wide">Other</span>
-                  <span className="text-[9px] text-white/20">{sorted.length}</span>
-                  <div className="flex-1 border-t border-white/[0.04]" />
-                </div>
-              )
-              for (const entry of sorted) {
-                const entryGid = groupMap.get(entry.id)!
-                const isConcurrent = (gidToSize.get(entryGid) || 1) > 1
-                const showHeader = isConcurrent && entryGid !== lastGid
-                lastGid = entryGid
-                const ts = new Date(entry.startedAt)
+                <div key={entry.id}>
+                  {showHeader && (
+                    <div className="flex items-center gap-2 pt-2 pb-0.5 px-1">
+                      <span className="text-[9px] text-white/25 font-mono">
+                        {ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <div className="flex-1 border-t border-accent-blue/10" />
+                    </div>
+                  )}
+                  <div className={isConcurrent ? 'ml-4 border-l-2 border-accent-blue/15 pl-2' : ''}>
+                    <div
+                      onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                      className="bg-surface-1 border border-white/[0.04] rounded-lg px-4 py-2.5 flex items-center justify-between cursor-pointer hover:border-white/[0.08] transition-all"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <ChevronRight
+                          size={10}
+                          className={`text-white/20 transition-transform flex-shrink-0 ${expandedId === entry.id ? 'rotate-90' : ''}`}
+                        />
+                        <Badge>{entry.projectName}</Badge>
+                        <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                        {entry.status === 'running' && (
+                          <span className="text-[9px] text-accent-green flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                            running
+                          </span>
+                        )}
+                        {entry.status === 'crashed' && <span className="text-[9px] text-accent-amber">crashed</span>}
+                        {entry.status === 'killed' && <span className="text-[9px] text-accent-red">killed</span>}
+                        <span className="text-[9px] text-white/20 flex items-center gap-1">
+                          <DollarSign size={8} />
+                          {entry.costUsd.toFixed(2)}
+                        </span>
+                        <span className="text-[9px] text-white/20 flex items-center gap-1">
+                          <FileEdit size={8} />
+                          {entry.filesChanged.length}
+                        </span>
+                        <span className="text-[9px] text-white/20">
+                          {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
+                        </span>
+                        {entry.sessionId && entry.status !== 'running' && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              try {
+                                await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', {
+                                  resumeSessionId: entry.sessionId,
+                                })
+                                setActiveView('queue')
+                              } catch (err: any) {
+                                setResumeError(err.message || 'Failed to resume session')
+                                setTimeout(() => setResumeError(null), 4000)
+                              }
+                            }}
+                            title="Resume this session"
+                            className="p-1 rounded text-white/20 hover:text-accent-green hover:bg-white/[0.04] transition-colors"
+                          >
+                            <Play size={10} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                rows.push(
-                  <div key={entry.id}>
-                    {showHeader && (
-                      <div className="flex items-center gap-2 pt-2 pb-0.5 px-1">
-                        <span className="text-[9px] text-white/25 font-mono">{ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        <div className="flex-1 border-t border-accent-blue/10" />
+                    {expandedId === entry.id && (
+                      <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-1 max-h-72 overflow-y-auto space-y-2">
+                        <div>
+                          <span className="text-[9px] text-white/30 uppercase">Prompt</span>
+                          <p className="text-[11px] text-white/60 mt-0.5">{entry.prompt}</p>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-white/30 uppercase">Summary</span>
+                          <p className="text-[11px] text-white/60 mt-0.5 max-h-32 overflow-y-auto">{entry.summary}</p>
+                        </div>
+                        {entry.filesChanged.length > 0 && (
+                          <div>
+                            <span className="text-[9px] text-white/30 uppercase">
+                              Files ({entry.filesChanged.length})
+                            </span>
+                            <div className="mt-1 space-y-0.5">
+                              {entry.filesChanged.map((f, i) => (
+                                <div key={i} className="text-[10px] text-white/40 font-mono">
+                                  {f}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-4 text-[9px] text-white/30 pt-1">
+                          <span>Cost: ${entry.costUsd.toFixed(4)}</span>
+                          <span>Turns: {entry.turnCount}</span>
+                          {entry.completedAt > 0 && (
+                            <span>Duration: {Math.round((entry.completedAt - entry.startedAt) / 60000)}m</span>
+                          )}
+                        </div>
                       </div>
                     )}
-                    <div className={isConcurrent ? 'ml-4 border-l-2 border-accent-blue/15 pl-2' : ''}>
-                      <div
-                        onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
-                        className="bg-surface-1 border border-white/[0.04] rounded-lg px-4 py-2.5 flex items-center justify-between cursor-pointer hover:border-white/[0.08] transition-all"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <ChevronRight size={10} className={`text-white/20 transition-transform flex-shrink-0 ${expandedId === entry.id ? 'rotate-90' : ''}`} />
-                          <Badge>{entry.projectName}</Badge>
-                          <span className="text-[10px] text-white/60 truncate">{entry.summary}</span>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                          {entry.status === 'running' && (
-                            <span className="text-[9px] text-accent-green flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />running
-                            </span>
-                          )}
-                          {entry.status === 'crashed' && (
-                            <span className="text-[9px] text-accent-amber">crashed</span>
-                          )}
-                          {entry.status === 'killed' && (
-                            <span className="text-[9px] text-accent-red">killed</span>
-                          )}
-                          <span className="text-[9px] text-white/20 flex items-center gap-1">
-                            <DollarSign size={8} />{entry.costUsd.toFixed(2)}
-                          </span>
-                          <span className="text-[9px] text-white/20 flex items-center gap-1">
-                            <FileEdit size={8} />{entry.filesChanged.length}
-                          </span>
-                          <span className="text-[9px] text-white/20">
-                            {new Date(entry.completedAt || entry.startedAt).toLocaleDateString()}
-                          </span>
-                          {entry.sessionId && entry.status !== 'running' && (
-                            <button
-                              onClick={async e => {
-                                e.stopPropagation()
-                                try {
-                                  await launch(entry.projectPath, entry.prompt || 'Continue where we left off.', { resumeSessionId: entry.sessionId })
-                                  setActiveView('queue')
-                                } catch (err: any) {
-                                  setResumeError(err.message || 'Failed to resume session')
-                                  setTimeout(() => setResumeError(null), 4000)
-                                }
-                              }}
-                              title="Resume this session"
-                              className="p-1 rounded text-white/20 hover:text-accent-green hover:bg-white/[0.04] transition-colors"
-                            >
-                              <Play size={10} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {expandedId === entry.id && (
-                        <div className="bg-surface-0 border border-white/[0.04] rounded-b-lg px-4 py-3 -mt-1 space-y-2">
-                          <div>
-                            <span className="text-[9px] text-white/30 uppercase">Prompt</span>
-                            <p className="text-[11px] text-white/60 mt-0.5">{entry.prompt}</p>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-white/30 uppercase">Summary</span>
-                            <p className="text-[11px] text-white/60 mt-0.5">{entry.summary}</p>
-                          </div>
-                          {entry.filesChanged.length > 0 && (
-                            <div>
-                              <span className="text-[9px] text-white/30 uppercase">Files ({entry.filesChanged.length})</span>
-                              <div className="mt-1 space-y-0.5">
-                                {entry.filesChanged.map((f, i) => (
-                                  <div key={i} className="text-[10px] text-white/40 font-mono">{f}</div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex gap-4 text-[9px] text-white/30 pt-1">
-                            <span>Cost: ${entry.costUsd.toFixed(4)}</span>
-                            <span>Turns: {entry.turnCount}</span>
-                            {entry.completedAt > 0 && (
-                              <span>Duration: {Math.round((entry.completedAt - entry.startedAt) / 60000)}m</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   </div>
-                )
-              }
-              return rows
-            })()}
-          </div>
-        )
+                </div>
+              )
+            }
+            return rows
+          })()}
+        </div>
       )}
     </div>
   )

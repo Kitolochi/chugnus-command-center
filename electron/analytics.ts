@@ -3,35 +3,37 @@ import path from 'path'
 import readline from 'readline'
 import os from 'os'
 import { discoverSessions, type SessionMeta } from './session-parser'
+import { priceFor } from '../src/lib/models'
 import type {
-  AVStats, AVSummary, AVTools, AVToolCategory, AVHeatmap, AVHeatmapEntry,
-  AVProjects, AVProject, AVSessions, AVSessionDistribution,
-  AVTopSessions, AVTopSession, AVSessionList, AVSessionListItem,
-  AVSessionDetail, AVSessionMessages, AVMessage, AVSearchResults, AVSearchResult,
-  AVActivity, AVActivitySeries, AVHourOfWeek, AVHourOfWeekCell,
+  AVStats,
+  AVSummary,
+  AVTools,
+  AVToolCategory,
+  AVHeatmap,
+  AVHeatmapEntry,
+  AVProjects,
+  AVProject,
+  AVSessions,
+  AVSessionDistribution,
+  AVTopSessions,
+  AVTopSession,
+  AVSessionList,
+  AVSessionListItem,
+  AVSessionDetail,
+  AVSessionMessages,
+  AVMessage,
+  AVSearchResults,
+  AVSearchResult,
+  AVActivity,
+  AVActivitySeries,
+  AVHourOfWeek,
+  AVHourOfWeekCell,
 } from '../src/types'
 
 // === Cost estimation (per 1M tokens) ===
 
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  'claude-opus-4': { input: 15, output: 75 },
-  'claude-opus-4-6': { input: 15, output: 75 },
-  'claude-sonnet-4-5': { input: 3, output: 15 },
-  'claude-sonnet-4-5-20250929': { input: 3, output: 15 },
-  'claude-sonnet-4-20250514': { input: 3, output: 15 },
-  'claude-haiku-4-5': { input: 0.80, output: 4 },
-  'claude-haiku-4-5-20251001': { input: 0.80, output: 4 },
-}
-
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  // Find matching cost entry by prefix
-  let costs = { input: 3, output: 15 } // default to sonnet pricing
-  for (const [key, val] of Object.entries(MODEL_COSTS)) {
-    if (model.startsWith(key) || model.includes(key)) {
-      costs = val
-      break
-    }
-  }
+  const costs = priceFor(model)
   return (inputTokens / 1_000_000) * costs.input + (outputTokens / 1_000_000) * costs.output
 }
 
@@ -39,15 +41,15 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number):
 
 interface SessionSummary {
   sessionId: string
-  project: string        // encoded directory name
+  project: string // encoded directory name
   projectFriendly: string
   filePath: string
   fileSize: number
-  cacheKey: string       // `${size}:${mtimeMs}`
+  cacheKey: string // `${size}:${mtimeMs}`
 
   firstMessage: string
-  startedAt: string      // ISO
-  endedAt: string        // ISO
+  startedAt: string // ISO
+  endedAt: string // ISO
   durationMin: number
 
   userMessages: number
@@ -79,7 +81,7 @@ function friendlyProjectName(dirName: string): string {
   // "C--Users-chris-mega-agenda" → "mega-agenda"
   const parts = dirName.split('-').filter(Boolean)
   // Skip C, Users, username prefix
-  const userIdx = parts.findIndex(p => p.toLowerCase() === 'users')
+  const userIdx = parts.findIndex((p) => p.toLowerCase() === 'users')
   if (userIdx >= 0 && userIdx + 2 < parts.length) {
     return parts.slice(userIdx + 2).join('-')
   }
@@ -278,17 +280,22 @@ async function loadAllSummaries(): Promise<SessionSummary[]> {
 async function _loadAllSummariesImpl(): Promise<SessionSummary[]> {
   const metas = discoverSessions()
   const results: SessionSummary[] = []
-  let cached_ = 0, parsed_ = 0, skipped_ = 0
+  let cached_ = 0,
+    parsed_ = 0,
+    skipped_ = 0
 
   // Invalidate stale cache entries
-  const currentIds = new Set(metas.map(m => m.sessionId))
+  const currentIds = new Set(metas.map((m) => m.sessionId))
   for (const key of summaryCache.keys()) {
     if (!currentIds.has(key)) summaryCache.delete(key)
   }
 
   for (const meta of metas) {
     // Skip tiny files
-    if (meta.size < 100) { skipped_++; continue }
+    if (meta.size < 100) {
+      skipped_++
+      continue
+    }
 
     const ck = cacheKey(meta)
     const cachedEntry = summaryCache.get(meta.sessionId)
@@ -309,7 +316,9 @@ async function _loadAllSummariesImpl(): Promise<SessionSummary[]> {
     }
   }
 
-  console.log(`[analytics] ${metas.length} files → ${results.length} sessions (${cached_} cached, ${parsed_} parsed, ${skipped_} skipped)`)
+  console.log(
+    `[analytics] ${metas.length} files → ${results.length} sessions (${cached_} cached, ${parsed_} parsed, ${skipped_} skipped)`
+  )
   return results
 }
 
@@ -318,19 +327,20 @@ function filterByDays(summaries: SessionSummary[], days?: number): SessionSummar
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days)
   const cutoffISO = cutoff.toISOString()
-  return summaries.filter(s => s.startedAt >= cutoffISO)
+  return summaries.filter((s) => s.startedAt >= cutoffISO)
 }
 
 // === Public API: each function returns the AV* type the UI expects ===
 
 export async function computeStats(): Promise<AVStats> {
   const all = await loadAllSummaries()
-  const projects = new Set(all.map(s => s.projectFriendly))
+  const projects = new Set(all.map((s) => s.projectFriendly))
   const machines = new Set(['local'])
   const totalMessages = all.reduce((sum, s) => sum + s.totalMessages, 0)
-  const earliest = all.length > 0
-    ? all.reduce((min, s) => s.startedAt < min ? s.startedAt : min, all[0].startedAt)
-    : new Date().toISOString()
+  const earliest =
+    all.length > 0
+      ? all.reduce((min, s) => (s.startedAt < min ? s.startedAt : min), all[0].startedAt)
+      : new Date().toISOString()
 
   return {
     session_count: all.length,
@@ -348,11 +358,11 @@ export async function computeSummary(days?: number): Promise<AVSummary> {
   const totalCost = all.reduce((sum, s) => sum + s.costEstimate, 0)
   const totalCommits = all.reduce((sum, s) => sum + s.gitCommits.length, 0)
 
-  const projects = new Set(all.map(s => s.projectFriendly))
-  const days_ = new Set(all.map(s => s.startedAt.slice(0, 10)))
+  const projects = new Set(all.map((s) => s.projectFriendly))
+  const days_ = new Set(all.map((s) => s.startedAt.slice(0, 10)))
 
   // Message counts per session for percentiles
-  const msgCounts = all.map(s => s.totalMessages).sort((a, b) => a - b)
+  const msgCounts = all.map((s) => s.totalMessages).sort((a, b) => a - b)
   const median = msgCounts.length > 0 ? msgCounts[Math.floor(msgCounts.length / 2)] : 0
   const p90 = msgCounts.length > 0 ? msgCounts[Math.floor(msgCounts.length * 0.9)] : 0
   const avg = totalSessions > 0 ? Math.round(totalMessages / totalSessions) : 0
@@ -365,13 +375,15 @@ export async function computeSummary(days?: number): Promise<AVSummary> {
   let mostActive = ''
   let maxMsgs = 0
   for (const [proj, count] of projectCounts) {
-    if (count > maxMsgs) { mostActive = proj; maxMsgs = count }
+    if (count > maxMsgs) {
+      mostActive = proj
+      maxMsgs = count
+    }
   }
 
   // Concentration (HHI)
-  const concentration = totalMessages > 0
-    ? Array.from(projectCounts.values()).reduce((sum, c) => sum + (c / totalMessages) ** 2, 0)
-    : 0
+  const concentration =
+    totalMessages > 0 ? Array.from(projectCounts.values()).reduce((sum, c) => sum + (c / totalMessages) ** 2, 0) : 0
 
   return {
     total_sessions: totalSessions,
@@ -385,7 +397,7 @@ export async function computeSummary(days?: number): Promise<AVSummary> {
     concentration,
     agents: {},
     // Extensions for Cost and Commits cards (cast as any since AV types don't have these)
-    ...(({ total_cost: totalCost, total_commits: totalCommits }) as any),
+    ...({ total_cost: totalCost, total_commits: totalCommits } as any),
   }
 }
 
@@ -510,10 +522,13 @@ export async function computeTools(days?: number): Promise<AVTools> {
 export async function computeProjects(): Promise<AVProjects> {
   const all = await loadAllSummaries()
 
-  const projectData = new Map<string, {
-    sessions: SessionSummary[]
-    messages: number
-  }>()
+  const projectData = new Map<
+    string,
+    {
+      sessions: SessionSummary[]
+      messages: number
+    }
+  >()
 
   for (const s of all) {
     const name = s.projectFriendly
@@ -525,7 +540,7 @@ export async function computeProjects(): Promise<AVProjects> {
 
   const projects: AVProject[] = Array.from(projectData.entries())
     .map(([name, data]) => {
-      const msgCounts = data.sessions.map(s => s.totalMessages).sort((a, b) => a - b)
+      const msgCounts = data.sessions.map((s) => s.totalMessages).sort((a, b) => a - b)
       const median = msgCounts.length > 0 ? msgCounts[Math.floor(msgCounts.length / 2)] : 0
       const sorted = data.sessions.sort((a, b) => a.startedAt.localeCompare(b.startedAt))
 
@@ -558,9 +573,9 @@ export async function computeSessions(): Promise<AVSessions> {
     { label: '51-100', min: 51, max: 100 },
     { label: '100+', min: 101, max: Infinity },
   ]
-  const lengthDist: AVSessionDistribution[] = lengthBuckets.map(b => ({
+  const lengthDist: AVSessionDistribution[] = lengthBuckets.map((b) => ({
     label: b.label,
-    count: all.filter(s => s.totalMessages >= b.min && s.totalMessages <= b.max).length,
+    count: all.filter((s) => s.totalMessages >= b.min && s.totalMessages <= b.max).length,
   }))
 
   // Duration distribution (in minutes)
@@ -572,9 +587,9 @@ export async function computeSessions(): Promise<AVSessions> {
     { label: '1-3h', min: 60, max: 180 },
     { label: '3h+', min: 180, max: Infinity },
   ]
-  const durationDist: AVSessionDistribution[] = durationBuckets.map(b => ({
+  const durationDist: AVSessionDistribution[] = durationBuckets.map((b) => ({
     label: b.label,
-    count: all.filter(s => s.durationMin >= b.min && s.durationMin < b.max).length,
+    count: all.filter((s) => s.durationMin >= b.min && s.durationMin < b.max).length,
   }))
 
   // Autonomy distribution (ratio of assistant to user messages)
@@ -585,8 +600,8 @@ export async function computeSessions(): Promise<AVSessions> {
     { label: '5-10:1', min: 5, max: 10 },
     { label: '10+:1', min: 10, max: Infinity },
   ]
-  const autonomyDist: AVSessionDistribution[] = autonomyBuckets.map(b => {
-    const count = all.filter(s => {
+  const autonomyDist: AVSessionDistribution[] = autonomyBuckets.map((b) => {
+    const count = all.filter((s) => {
       const ratio = s.userMessages > 0 ? s.assistantMessages / s.userMessages : 0
       return ratio >= b.min && ratio < b.max
     }).length
@@ -605,7 +620,7 @@ export async function computeTopSessions(): Promise<AVTopSessions> {
   const all = await loadAllSummaries()
   const sorted = [...all].sort((a, b) => b.totalMessages - a.totalMessages)
 
-  const sessions: AVTopSession[] = sorted.slice(0, 20).map(s => ({
+  const sessions: AVTopSession[] = sorted.slice(0, 20).map((s) => ({
     id: s.sessionId,
     project: s.projectFriendly,
     first_message: s.firstMessage || s.sessionId,
@@ -626,20 +641,21 @@ export async function getSessionList(opts?: {
 
   let filtered = all
   if (opts?.project) {
-    filtered = filtered.filter(s => s.projectFriendly === opts.project)
+    filtered = filtered.filter((s) => s.projectFriendly === opts.project)
   }
   if (opts?.search) {
     const q = opts.search.toLowerCase()
-    filtered = filtered.filter(s =>
-      s.firstMessage.toLowerCase().includes(q) ||
-      s.sessionId.toLowerCase().includes(q) ||
-      s.projectFriendly.toLowerCase().includes(q)
+    filtered = filtered.filter(
+      (s) =>
+        s.firstMessage.toLowerCase().includes(q) ||
+        s.sessionId.toLowerCase().includes(q) ||
+        s.projectFriendly.toLowerCase().includes(q)
     )
   }
 
   // Sort by most recent first
   filtered.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-  const sessions: AVSessionListItem[] = filtered.slice(0, limit).map(s => ({
+  const sessions: AVSessionListItem[] = filtered.slice(0, limit).map((s) => ({
     id: s.sessionId,
     project: s.projectFriendly,
     machine: 'local',
@@ -663,7 +679,7 @@ export async function getSessionList(opts?: {
 
 export async function getSessionDetail(id: string): Promise<AVSessionDetail | null> {
   const all = await loadAllSummaries()
-  const s = all.find(s => s.sessionId === id)
+  const s = all.find((s) => s.sessionId === id)
   if (!s) return null
 
   return {
@@ -688,10 +704,13 @@ export async function getSessionMessages(id: string, limit?: number): Promise<AV
   let filePath: string | null = null
 
   try {
-    const dirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter(d => d.isDirectory())
+    const dirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter((d) => d.isDirectory())
     for (const d of dirs) {
       const fp = path.join(projectsDir, d.name, `${id}.jsonl`)
-      if (fs.existsSync(fp)) { filePath = fp; break }
+      if (fs.existsSync(fp)) {
+        filePath = fp
+        break
+      }
     }
   } catch {}
 

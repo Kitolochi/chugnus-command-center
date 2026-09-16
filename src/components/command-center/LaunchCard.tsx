@@ -2,17 +2,45 @@ import { useState, useEffect, useCallback } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { Button, Dialog } from '../ui'
 import { Rocket, FolderPlus, FolderOpen, X } from 'lucide-react'
+import {
+  CLAUDE_MODELS,
+  CHAT_MODEL,
+  DEFAULT_MODEL,
+  DEFAULT_EFFORT,
+  EFFORT_LEVELS,
+  resolveModelId,
+} from '../../lib/models'
 
 export default function LaunchCard() {
-  const { projects, launch, setLaunchOpen, loadProjects } = useCommandCenterStore()
-  const [projectPath, setProjectPath] = useState('')
+  const { projects, launch, setLaunchOpen, loadProjects, launchPrefilledProject, setLaunchPrefilledProject } =
+    useCommandCenterStore()
+  const [projectPath, setProjectPath] = useState(launchPrefilledProject || '')
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('sonnet')
+  const [model, setModel] = useState<string>(DEFAULT_MODEL)
+  const [effort, setEffort] = useState<string>(DEFAULT_EFFORT)
+  const [autoInfer, setAutoInfer] = useState(true)
   const [maxBudget, setMaxBudget] = useState('')
   const [creatingNew, setCreatingNew] = useState(false)
   const [newName, setNewName] = useState('')
 
-  useEffect(() => { loadProjects() }, [])
+  useEffect(() => {
+    loadProjects()
+  }, [])
+
+  // Load CC defaults
+  useEffect(() => {
+    window.electronAPI.ccGetSettings().then((s) => {
+      setModel(resolveModelId(s.defaultModel))
+      setEffort(s.defaultEffort)
+      setAutoInfer(s.autoInferModel)
+    })
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      setLaunchPrefilledProject(null)
+    }
+  }, [setLaunchPrefilledProject])
 
   const handleBrowse = async () => {
     const result = await window.electronAPI.ccBrowseProject()
@@ -35,36 +63,39 @@ export default function LaunchCard() {
 
   const inferModel = useCallback((text: string) => {
     const lower = text.toLowerCase()
-    const codingSignals = /\b(implement|build|fix|refactor|write code|add feature|bug|test|migrate|endpoint|component|function|class|module|api)\b/
-    if (codingSignals.test(lower)) return 'opus'
-    return 'sonnet'
+    const codingSignals =
+      /\b(implement|build|fix|refactor|write code|add feature|bug|test|migrate|endpoint|component|function|class|module|api)\b/
+    if (codingSignals.test(lower)) return DEFAULT_MODEL
+    return CHAT_MODEL
   }, [])
+
+  const handleClose = () => {
+    setLaunchPrefilledProject(null)
+    setLaunchOpen(false)
+  }
 
   const handleLaunch = () => {
     if (!projectPath || !prompt.trim()) return
-    const modelMap: Record<string, string> = {
-      opus: 'claude-opus-4-6',
-      sonnet: 'claude-sonnet-4-5-20250929',
-      haiku: 'claude-haiku-4-5-20251001',
-    }
     launch(projectPath, prompt.trim(), {
-      model: modelMap[model],
+      model,
+      effort,
       maxBudget: maxBudget ? parseFloat(maxBudget) : undefined,
     })
   }
 
   const canLaunch = projectPath && prompt.trim()
 
-  const inputClass = 'w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40'
+  const inputClass =
+    'w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40'
 
   return (
-    <Dialog open onClose={() => setLaunchOpen(false)}>
+    <Dialog open onClose={handleClose}>
       <div className="bg-surface-1 border border-white/[0.08] rounded-xl w-[440px] max-w-[90vw] p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-sm font-semibold text-white/90">New Task</h2>
           <button
-            onClick={() => setLaunchOpen(false)}
+            onClick={handleClose}
             className="p-1 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors"
           >
             <X size={14} />
@@ -79,15 +110,24 @@ export default function LaunchCard() {
               <input
                 autoFocus
                 value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleCreateProject(); if (e.key === 'Escape') setCreatingNew(false) }}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateProject()
+                  if (e.key === 'Escape') setCreatingNew(false)
+                }}
                 placeholder="my-new-project"
                 className={`min-w-0 flex-1 ${inputClass}`}
               />
               <Button variant="primary" size="sm" onClick={handleCreateProject} disabled={!newName.trim()}>
                 Create
               </Button>
-              <button onClick={() => { setCreatingNew(false); setNewName('') }} className="shrink-0 p-1.5 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors">
+              <button
+                onClick={() => {
+                  setCreatingNew(false)
+                  setNewName('')
+                }}
+                className="shrink-0 p-1.5 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors"
+              >
                 <X size={14} />
               </button>
             </div>
@@ -95,19 +135,27 @@ export default function LaunchCard() {
             <>
               <select
                 value={projectPath}
-                onChange={e => setProjectPath(e.target.value)}
+                onChange={(e) => setProjectPath(e.target.value)}
                 className={`mb-2 ${inputClass}`}
               >
                 <option value="">Select project...</option>
-                {projects.map(p => (
-                  <option key={p.path} value={p.path}>{p.name}</option>
+                {projects.map((p) => (
+                  <option key={p.path} value={p.path}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
               <div className="flex items-center gap-2">
-                <button onClick={() => setCreatingNew(true)} className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/60 transition-colors">
+                <button
+                  onClick={() => setCreatingNew(true)}
+                  className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                >
                   <FolderPlus size={12} /> New project
                 </button>
-                <button onClick={handleBrowse} className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/60 transition-colors">
+                <button
+                  onClick={handleBrowse}
+                  className="flex items-center gap-1.5 text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                >
                   <FolderOpen size={12} /> Browse
                 </button>
               </div>
@@ -120,35 +168,46 @@ export default function LaunchCard() {
           <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Prompt</label>
           <textarea
             value={prompt}
-            onChange={e => { setPrompt(e.target.value); setModel(inferModel(e.target.value)) }}
+            onChange={(e) => {
+              setPrompt(e.target.value)
+              if (autoInfer) setModel(inferModel(e.target.value))
+            }}
             placeholder="What should Claude do?"
             className={`resize-none min-h-[100px] ${inputClass}`}
             rows={4}
           />
         </div>
 
-        {/* Model + Budget row */}
+        {/* Model + Effort + Budget row */}
         <div className="flex gap-3 mb-6">
           <div className="flex-1">
             <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Model</label>
-            <select
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              className={inputClass}
-            >
-              <option value="sonnet">Sonnet</option>
-              <option value="opus">Opus</option>
-              <option value="haiku">Haiku</option>
+            <select value={model} onChange={(e) => setModel(e.target.value)} className={inputClass}>
+              {CLAUDE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex-1">
-            <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Max Budget (USD)</label>
+            <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Effort</label>
+            <select value={effort} onChange={(e) => setEffort(e.target.value)} className={inputClass}>
+              {EFFORT_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Budget (USD)</label>
             <input
               type="number"
               step="0.50"
               min="0"
               value={maxBudget}
-              onChange={e => setMaxBudget(e.target.value)}
+              onChange={(e) => setMaxBudget(e.target.value)}
               placeholder="No limit"
               className={inputClass}
             />
@@ -157,13 +216,10 @@ export default function LaunchCard() {
 
         {/* Actions */}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setLaunchOpen(false)}>Cancel</Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleLaunch}
-            disabled={!canLaunch}
-          >
+          <Button variant="ghost" size="sm" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleLaunch} disabled={!canLaunch}>
             <Rocket size={12} /> Launch
           </Button>
         </div>

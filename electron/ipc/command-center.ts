@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
-import { execSync } from 'child_process'
+import { execSync, exec } from 'child_process'
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
@@ -12,6 +12,7 @@ import {
   getQueue,
   getProcessLog,
 } from '../command-center'
+import { analyzeSession, repairSession } from '../session-repair'
 import {
   getCCHistory,
   addCCHistoryEntry,
@@ -22,36 +23,75 @@ import {
   upsertKnownProject,
   discoverProjects,
   getDailyPrompts,
+  getCCSettings,
+  saveCCSettings,
 } from '../database'
+import type { CCSettings } from '../database'
 import { getProjectDescription } from '../cli-logs'
 
 export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
   initCommandCenter(mainWindow)
   cleanupStaleCCHistory()
 
-  ipcMain.handle('cc:launch', async (_, opts: { projectPath: string; prompt: string; model?: string; maxBudget?: number; resumeSessionId?: string }) => {
-    upsertKnownProject(opts.projectPath)
-    const item = launchProcess(opts)
+  ipcMain.handle(
+    'cc:launch',
+    async (
+      _,
+      opts: {
+        projectPath: string
+        prompt: string
+        model?: string
+        effort?: string
+        maxBudget?: number
+        resumeSessionId?: string
+      }
+    ) => {
+      upsertKnownProject(opts.projectPath)
 
-    // Save to history immediately on launch
-    addCCHistoryEntry({
-      id: item.processId,
-      sessionId: opts.resumeSessionId,
-      projectPath: item.projectPath,
-      projectName: item.projectName,
-      projectColor: item.projectColor,
-      prompt: item.prompt,
-      summary: 'Running...',
-      status: 'running',
-      filesChanged: [],
-      costUsd: 0,
-      turnCount: 0,
-      startedAt: item.startedAt,
-      completedAt: 0,
-    })
+      if (opts.resumeSessionId) {
+        const analysis = analyzeSession(opts.resumeSessionId, opts.projectPath)
+        if (analysis.exists && !analysis.healthy && analysis.truncateAt !== undefined) {
+          const choice = await dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            buttons: ['Trim & Resume', 'Cancel'],
+            defaultId: 0,
+            cancelId: 1,
+            title: 'Session needs repair',
+            message: 'This session was interrupted mid-tool (likely a rate limit).',
+            detail: `${analysis.issue}\n\nTrimming will roll back ${analysis.totalLines - analysis.truncateAt} line(s) to the last completed assistant turn. The original file will be backed up before changes are made.`,
+          })
+          if (choice.response !== 0) {
+            throw new Error('Session repair cancelled')
+          }
+          const result = repairSession(opts.resumeSessionId, opts.projectPath)
+          if (!result.ok) {
+            throw new Error(`Repair failed: ${result.message}`)
+          }
+        }
+      }
 
-    return item
-  })
+      const item = launchProcess(opts)
+
+      // Save to history immediately on launch
+      addCCHistoryEntry({
+        id: item.processId,
+        sessionId: opts.resumeSessionId,
+        projectPath: item.projectPath,
+        projectName: item.projectName,
+        projectColor: item.projectColor,
+        prompt: item.prompt,
+        summary: 'Running...',
+        status: 'running',
+        filesChanged: [],
+        costUsd: 0,
+        turnCount: 0,
+        startedAt: item.startedAt,
+        completedAt: 0,
+      })
+
+      return item
+    }
+  )
 
   ipcMain.handle('cc:respond', (_, opts: { processId: string; response: string }) => {
     respondToProcess(opts.processId, opts.response)
@@ -138,12 +178,18 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
   })
 
   ipcMain.handle('cc:create-project', (_, opts: { name: string }) => {
-    const safeName = opts.name.trim().replace(/[<>:"/\\|?*]+/g, '-').replace(/\s+/g, '-').toLowerCase()
+    const safeName = opts.name
+      .trim()
+      .replace(/[<>:"/\\|?*]+/g, '-')
+      .replace(/\s+/g, '-')
+      .toLowerCase()
     if (!safeName) return null
     const projectPath = path.join(os.homedir(), safeName)
     if (!fs.existsSync(projectPath)) {
       fs.mkdirSync(projectPath, { recursive: true })
-      try { execSync('git init', { cwd: projectPath, stdio: 'ignore' }) } catch {}
+      try {
+        execSync('git init', { cwd: projectPath, stdio: 'ignore' })
+      } catch {}
     }
     upsertKnownProject(projectPath)
     return { path: projectPath, name: safeName }
@@ -158,5 +204,38 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
     const projectPath = result.filePaths[0]
     upsertKnownProject(projectPath)
     return { path: projectPath, name: path.basename(projectPath) }
+  })
+
+  ipcMain.handle('cc:exec-shell', (_, opts: { command: string; cwd: string }) => {
+    return new Promise<{ stdout: string; stderr: string; code: number }>((resolve) => {
+      exec(
+        opts.command,
+        {
+          cwd: opts.cwd,
+          timeout: 30_000,
+          maxBuffer: 1024 * 1024,
+          shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+        },
+        (err, stdout, stderr) => {
+          resolve({
+            stdout: stdout || '',
+            stderr: stderr || '',
+            code: err?.code ?? 0,
+          })
+        }
+      )
+    })
+  })
+
+  ipcMain.handle('cc:get-settings', () => getCCSettings())
+
+  ipcMain.handle('cc:save-settings', (_, updates: Partial<CCSettings>) => saveCCSettings(updates))
+
+  ipcMain.handle('cc:analyze-session', (_, opts: { sessionId: string; projectPath: string }) => {
+    return analyzeSession(opts.sessionId, opts.projectPath)
+  })
+
+  ipcMain.handle('cc:repair-session', (_, opts: { sessionId: string; projectPath: string }) => {
+    return repairSession(opts.sessionId, opts.projectPath)
   })
 }

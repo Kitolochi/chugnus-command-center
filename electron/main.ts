@@ -3,15 +3,43 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-const crashLog = path.join(os.tmpdir(), 'chugnus-crash.log')
+// Write to a stable path in the user's home so we can always find it
+const crashLog = path.join(os.homedir(), 'chugnus-crash.log')
 function logCrash(msg: string) {
   const line = `[${new Date().toISOString()}] ${msg}\n`
-  try { fs.appendFileSync(crashLog, line) } catch {}
-  console.log(msg)
+  try {
+    const fd = fs.openSync(crashLog, 'a')
+    fs.writeSync(fd, line)
+    fs.fsyncSync(fd)
+    fs.closeSync(fd)
+  } catch {}
+  console.log(`[CRASHLOG] ${msg}`)
 }
-process.on('uncaughtException', (err) => { logCrash(`UNCAUGHT: ${err.stack || err}`) })
-process.on('unhandledRejection', (reason) => { logCrash(`UNHANDLED: ${reason}`) })
-process.on('exit', (code) => { logCrash(`EXIT code=${code}`) })
+logCrash(`=== BOOT pid=${process.pid} argv=${JSON.stringify(process.argv)} ===`)
+process.on('uncaughtException', (err) => {
+  logCrash(`UNCAUGHT: ${err.stack || err}`)
+})
+process.on('unhandledRejection', (reason: any) => {
+  logCrash(`UNHANDLED: ${reason?.stack || reason}`)
+})
+process.on('exit', (code) => {
+  logCrash(`process EXIT code=${code}`)
+})
+process.on('SIGTERM', () => {
+  logCrash(`SIGTERM received`)
+})
+process.on('SIGINT', () => {
+  logCrash(`SIGINT received`)
+})
+process.on('SIGHUP', () => {
+  logCrash(`SIGHUP received`)
+})
+process.on('beforeExit', (code) => {
+  logCrash(`beforeExit code=${code}`)
+})
+process.on('warning', (w) => {
+  logCrash(`WARN: ${w.name}: ${w.message}`)
+})
 import { spawn } from 'child_process'
 import { initDatabase } from './database'
 import { initEmbeddingModel, getEmbeddingStatus } from './embeddings'
@@ -24,6 +52,7 @@ import { setAgentLaunchFn } from './ipc/agents'
 import { shutdownAllProcesses } from './command-center'
 import { initSecrets, migrateSecretsFromDb } from './secrets'
 import { getPlaintextSecrets, clearPlaintextSecrets } from './database'
+import { initCoach, destroyCoach } from './usage-coach'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -47,38 +76,39 @@ function launchInExternalTerminal(opts: {
 }): void {
   const tmpDir = path.join(app.getPath('temp'), 'chugnus-command-center')
   fs.mkdirSync(tmpDir, { recursive: true })
-  const safePrompt = opts.prompt.replace(/%/g, '%%').replace(/"/g, "'").replace(/[&|<>^]/g, '^$&')
-  const tools = opts.allowedTools || '"Bash(*)" "Edit(*)" "Write(*)" "Read(*)" "Glob(*)" "Grep(*)" "WebFetch(*)" "WebSearch(*)"'
+  const safePrompt = opts.prompt
+    .replace(/%/g, '%%')
+    .replace(/"/g, "'")
+    .replace(/[&|<>^]/g, '^$&')
+  const tools =
+    opts.allowedTools || '"Bash(*)" "Edit(*)" "Write(*)" "Read(*)" "Glob(*)" "Grep(*)" "WebFetch(*)" "WebSearch(*)"'
   const claudeCmd = `npx --yes @anthropic-ai/claude-code --dangerously-skip-permissions --allowedTools ${tools} -- "${safePrompt}"`
 
   if (process.platform === 'win32') {
     const batFile = path.join(tmpDir, `launch-${Date.now()}.bat`)
-    fs.writeFileSync(batFile, [
-      '@echo off',
-      `cd /d "${opts.cwd}"`,
-      claudeCmd,
-    ].join('\r\n'))
+    fs.writeFileSync(batFile, ['@echo off', `cd /d "${opts.cwd}"`, claudeCmd].join('\r\n'))
     const child = spawn('cmd.exe', ['/c', 'start', `"${(opts.title || '').slice(0, 40)}"`, 'cmd', '/k', batFile], {
-      detached: true, stdio: 'ignore', env: opts.env,
+      detached: true,
+      stdio: 'ignore',
+      env: opts.env,
     })
     child.unref()
   } else {
     const shFile = path.join(tmpDir, `launch-${Date.now()}.sh`)
-    fs.writeFileSync(shFile, [
-      '#!/bin/bash',
-      `cd "${opts.cwd}"`,
-      claudeCmd,
-      'exec $SHELL',
-    ].join('\n'))
+    fs.writeFileSync(shFile, ['#!/bin/bash', `cd "${opts.cwd}"`, claudeCmd, 'exec $SHELL'].join('\n'))
     fs.chmodSync(shFile, 0o755)
     if (process.platform === 'darwin') {
       const child = spawn('open', ['-a', 'Terminal', shFile], {
-        detached: true, stdio: 'ignore', env: opts.env,
+        detached: true,
+        stdio: 'ignore',
+        env: opts.env,
       })
       child.unref()
     } else {
       const child = spawn('x-terminal-emulator', ['-e', shFile], {
-        detached: true, stdio: 'ignore', env: opts.env,
+        detached: true,
+        stdio: 'ignore',
+        env: opts.env,
       })
       child.unref()
     }
@@ -120,9 +150,29 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  // Diagnostic listeners — surface renderer crashes, load failures, console output
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    logCrash(`RENDERER GONE: reason=${details.reason} exitCode=${details.exitCode}`)
+  })
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    logCrash(`did-fail-load: code=${code} desc=${desc} url=${url}`)
+  })
+  mainWindow.webContents.on('unresponsive', () => {
+    logCrash(`renderer unresponsive`)
+  })
+  mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
+    if (level >= 2) {
+      logCrash(`renderer console L${level}: ${message} @ ${source}:${line}`)
+    }
+  })
+  mainWindow.on('closed', () => {
+    logCrash(`mainWindow closed event`)
+  })
+
   // No auto-hide on blur -- app shows in taskbar normally
 
   mainWindow.on('close', (event) => {
+    logCrash(`mainWindow close event (prevented)`)
     event.preventDefault()
     mainWindow?.hide()
   })
@@ -141,7 +191,8 @@ function createTray() {
 
   // Fallback to embedded if file not found
   if (trayIcon.isEmpty()) {
-    const icon16Base64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAH0lEQVQ4T2NkoBAwUqifgWoGjBowasCoAQNvwFAIAwDkfQER39Vg/AAAAABJRU5ErkJggg=='
+    const icon16Base64 =
+      'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAH0lEQVQ4T2NkoBAwUqifgWoGjBowasCoAQNvwFAIAwDkfQER39Vg/AAAAABJRU5ErkJggg=='
     trayIcon = nativeImage.createFromDataURL(`data:image/png;base64,${icon16Base64}`)
   }
 
@@ -151,7 +202,7 @@ function createTray() {
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Open',
-      click: () => showWindow()
+      click: () => showWindow(),
     },
     { type: 'separator' },
     {
@@ -159,8 +210,8 @@ function createTray() {
       click: () => {
         mainWindow?.destroy()
         app.quit()
-      }
-    }
+      },
+    },
   ])
 
   tray.setContextMenu(contextMenu)
@@ -192,7 +243,29 @@ if (!gotTheLock) {
   })
 }
 
+app.on('child-process-gone', (_e, details) => {
+  logCrash(
+    `CHILD GONE: type=${details.type} reason=${details.reason} exitCode=${details.exitCode} name=${details.name || ''}`
+  )
+})
+app.on('render-process-gone', (_e, _wc, details) => {
+  logCrash(`APP render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`)
+})
+app.on('before-quit', () => {
+  logCrash(`app before-quit\nSTACK:\n${new Error().stack}`)
+})
+app.on('will-quit', () => {
+  logCrash(`app will-quit`)
+})
+app.on('quit', (_e, code) => {
+  logCrash(`app quit code=${code}`)
+})
+app.on('window-all-closed', () => {
+  logCrash(`window-all-closed (platform=${process.platform})`)
+})
+
 app.whenReady().then(() => {
+  logCrash(`app ready`)
   // CSP: strict in production, relaxed in dev (Vite HMR needs inline scripts + eval)
   const csp = VITE_DEV_SERVER_URL
     ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: wss: ws:"
@@ -201,8 +274,8 @@ app.whenReady().then(() => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [csp]
-      }
+        'Content-Security-Policy': [csp],
+      },
     })
   })
 
@@ -210,8 +283,8 @@ app.whenReady().then(() => {
   const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-read', 'notifications'])
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     const requestUrl = webContents?.getURL() || ''
-    const isLocalContent = requestUrl.startsWith('file://') ||
-      (VITE_DEV_SERVER_URL && requestUrl.startsWith(VITE_DEV_SERVER_URL))
+    const isLocalContent =
+      requestUrl.startsWith('file://') || (VITE_DEV_SERVER_URL && requestUrl.startsWith(VITE_DEV_SERVER_URL))
     callback(isLocalContent && ALLOWED_PERMISSIONS.has(permission))
   })
 
@@ -224,6 +297,9 @@ app.whenReady().then(() => {
   // Register all IPC handlers from modular files
   registerAllHandlers(mainWindow!)
 
+  // Initialize usage coach
+  initCoach(mainWindow!)
+
   // Wire up agent launch function (IPC handler + module-level for retries)
   setAgentLaunchFn(launchInExternalTerminal)
   setLaunchFn(launchInExternalTerminal)
@@ -235,7 +311,9 @@ app.whenReady().then(() => {
       if (agentRuns.length > 0) {
         safeSend('agents-updated')
       }
-    } catch (e) { console.error('Agent heartbeat error:', e) }
+    } catch (e) {
+      console.error('Agent heartbeat error:', e)
+    }
   }, 60 * 1000)
 
   // Poll agent sessions every 30s — auto-complete, retry, and timeout detection
@@ -243,7 +321,9 @@ app.whenReady().then(() => {
     try {
       const changed = await pollAgentSessions()
       if (changed) safeSend('agents-updated')
-    } catch (e) { console.error('Agent session poll error:', e) }
+    } catch (e) {
+      console.error('Agent session poll error:', e)
+    }
   }, 30 * 1000)
 
   // Scaffold domain-based memory folders
@@ -258,20 +338,26 @@ app.whenReady().then(() => {
   // NOTE: Full rebuild is triggered manually from the UI to avoid freezing on startup
   setTimeout(async () => {
     try {
+      logCrash('startup5s: initEmbeddingModel begin')
       await initEmbeddingModel((progress) => {
         safeSend('embedding-progress', progress)
       })
+      logCrash('startup5s: initEmbeddingModel done')
       const embStatus = getEmbeddingStatus()
       if (embStatus.ready) {
+        logCrash('startup5s: loadVectorIndex begin')
         await loadVectorIndex()
+        logCrash('startup5s: loadVectorIndex done')
       }
     } catch (err) {
+      logCrash(`startup5s: threw ${(err as any)?.stack || err}`)
       console.error('Background embedding/index init failed:', err)
     }
   }, 5000)
 })
 
 app.on('before-quit', () => {
+  destroyCoach()
   shutdownAllProcesses()
   if (tray) {
     tray.destroy()

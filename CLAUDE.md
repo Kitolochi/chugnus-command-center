@@ -8,6 +8,7 @@ Focused AI command center forked from mega-agenda — agent orchestration, knowl
 - **Build**: Vite + vite-plugin-electron
 - **Database**: JSON file persisted via fs.writeFileSync (`%APPDATA%/chugnus-command-center/chugnus-command-center.json`)
 - **AI**: Multi-provider LLM (Claude, ChatGPT, Gemini, Groq, OpenRouter) via `electron/llm.ts`
+- **Claude models**: `src/lib/models.ts` is the one list of ids, CLI aliases, labels, USD pricing and effort levels; every picker, cost table and default imports from it
 - **Embeddings**: @xenova/transformers (MiniLM-L6-v2, 384-dim local embeddings)
 - **Search**: Hybrid — LanceDB vector search + MiniSearch BM25, merged via Reciprocal Rank Fusion (RRF)
 

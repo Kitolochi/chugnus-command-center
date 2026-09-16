@@ -5,6 +5,7 @@ import { app } from 'electron'
 import { getClaudeApiKey } from './database'
 import { chunkAllFiles, Chunk } from './chunker'
 import { embedBatch, cosineSimilarity, embedText } from './embeddings'
+import { FAST_MODEL } from '../src/lib/models'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ function getCompressedPath(): string {
 function callClaudeHaiku(apiKey: string, prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: FAST_MODEL,
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }]
     })

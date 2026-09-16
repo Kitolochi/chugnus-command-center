@@ -1,6 +1,7 @@
 import http from 'http'
 import crypto from 'crypto'
 import { BrowserWindow } from 'electron'
+import { DEFAULT_MODEL, findModel, priceFor } from '../src/lib/models'
 
 // === Types (mirroring src/types for main process) ===
 
@@ -44,18 +45,19 @@ interface CollabSession {
 const PROXY_BASE = 'http://127.0.0.1:8741'
 const CLAUDE_ENDPOINT = '/claude/v1/chat/completions'
 const GPT_ENDPOINT = '/codex/v1/chat/completions'
-const CLAUDE_MODEL = 'claude-opus-4-6'
+const CLAUDE_MODEL = DEFAULT_MODEL
+const CLAUDE_LABEL = findModel(CLAUDE_MODEL)!.label
 const GPT_MODEL = 'gpt-5.4'
 const MAX_TOKENS = 4096
 const NEED_INPUT_TAG = 'NEED_USER_INPUT:'
 
 // Cost per 1M tokens (USD)
-const COST_CLAUDE_IN = 15
-const COST_CLAUDE_OUT = 75
+const COST_CLAUDE_IN = priceFor(CLAUDE_MODEL).input
+const COST_CLAUDE_OUT = priceFor(CLAUDE_MODEL).output
 const COST_GPT_IN = 5
 const COST_GPT_OUT = 15
 
-const CLAUDE_SYSTEM = `You are Claude (Opus 4.6), an expert coding agent. You are collaborating with GPT-5.4 on a coding task given by the user.
+const CLAUDE_SYSTEM = `You are Claude (${CLAUDE_LABEL}), an expert coding agent. You are collaborating with GPT-5.4 on a coding task given by the user.
 
 Rules:
 - Focus on writing correct, clean, production-quality code
@@ -66,7 +68,7 @@ Rules:
 - When the task feels complete, say TASK_COMPLETE and summarize what was built
 - You can see GPT's previous messages. Build on them, don't repeat work.`
 
-const GPT_SYSTEM = `You are GPT-5.4, an expert coding agent. You are collaborating with Claude Opus 4.6 on a coding task given by the user.
+const GPT_SYSTEM = `You are GPT-5.4, an expert coding agent. You are collaborating with Claude ${CLAUDE_LABEL} on a coding task given by the user.
 
 Rules:
 - Focus on writing correct, clean, production-quality code

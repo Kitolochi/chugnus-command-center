@@ -2,6 +2,10 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import { app } from 'electron'
+import { getSecret, setSecret } from './secrets'
+import type { CoachDbState } from '../src/types'
+import { CHAT_MODEL, DEFAULT_EFFORT, DEFAULT_MODEL, FAST_MODEL, normalizeModelId } from '../src/lib/models'
+import type { EffortLevel } from '../src/lib/models'
 
 interface Task {
   id: number
@@ -236,7 +240,7 @@ interface Memory {
   title: string
   content: string
   topics: string[]
-  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual'
+  sourceType: 'chat' | 'cli_session' | 'journal' | 'task' | 'ai_task' | 'manual' | 'coach'
   sourceId: string | null
   sourcePreview: string
   importance: 1 | 2 | 3
@@ -266,6 +270,12 @@ export interface LLMSettings {
   openrouterApiKey: string
   primaryModel: string
   fastModel: string
+}
+
+export interface CCSettings {
+  defaultEffort: EffortLevel
+  defaultModel: string
+  autoInferModel: boolean
 }
 
 export interface TelegramSettings {
@@ -629,6 +639,7 @@ interface Database {
   memorySettings: MemorySettings
   welcomeDismissed: boolean
   llmSettings: LLMSettings
+  ccSettings: CCSettings
   telegramSettings: TelegramSettings
   bankConnections: BankConnection[]
   bankAccounts: BankAccount[]
@@ -659,6 +670,8 @@ interface Database {
   collabHistory: CollabHistoryEntry[]
   // Daily prompt counter
   dailyPrompts: { date: string; count: number }
+  // Usage Coach
+  coachState: CoachDbState
 }
 
 let db: Database
@@ -691,6 +704,22 @@ const defaultCategories: Category[] = [
   { id: 7, name: 'Daily', color: '#14b8a6', icon: '📋', sort_order: 7 },
 ]
 
+/**
+ * A usable DB file must parse as a JSON object. Corruption from interrupted
+ * writes leaves the file empty, whitespace-only, or NUL-filled — none of which
+ * `.trim().length` reliably catches (JS trim does not strip NUL bytes), so
+ * validate by parsing rather than by length.
+ */
+export function isValidDbJson(data: string): boolean {
+  if (!data || data.trim().length < 10) return false
+  try {
+    const parsed = JSON.parse(data)
+    return parsed != null && typeof parsed === 'object'
+  } catch {
+    return false
+  }
+}
+
 export function initDatabase(): Database {
   dbPath = path.join(app.getPath('userData'), 'chugnus-command-center.json')
 
@@ -698,9 +727,10 @@ export function initDatabase(): Database {
     let data = fs.readFileSync(dbPath, 'utf-8')
 
     // Crash recovery: if file is empty/corrupt, restore from latest backup
-    if (!data || data.trim().length < 10) {
+    if (!isValidDbJson(data)) {
       console.warn('[db] Database file is empty or corrupt, attempting backup recovery...')
       const backupDir = path.join(path.dirname(dbPath), 'backups')
+      let recovered = false
       if (fs.existsSync(backupDir)) {
         const backups = fs.readdirSync(backupDir)
           .filter(f => f.startsWith('chugnus-cc-') && f.endsWith('.json'))
@@ -709,23 +739,24 @@ export function initDatabase(): Database {
         for (const backup of backups) {
           try {
             const backupData = fs.readFileSync(path.join(backupDir, backup), 'utf-8')
-            if (backupData.length > 100) {
-              JSON.parse(backupData) // validate it's valid JSON
+            if (isValidDbJson(backupData)) {
               data = backupData
               fs.writeFileSync(dbPath, data, 'utf-8')
               console.log(`[db] Restored from backup: ${backup}`)
+              recovered = true
               break
             }
           } catch {}
         }
       }
-      if (!data || data.trim().length < 10) {
+      if (!recovered) {
         console.error('[db] No valid backup found, creating fresh database')
-        fs.unlinkSync(dbPath) // remove corrupt file, fall through to fresh creation
+        try { fs.unlinkSync(dbPath) } catch {} // remove corrupt file, fall through to fresh creation
+        data = ''
       }
     }
 
-    if (data && data.trim().length >= 10) {
+    if (isValidDbJson(data)) {
     db = JSON.parse(data)
     if (!db.dailyNotes) {
       db.dailyNotes = []
@@ -758,6 +789,16 @@ export function initDatabase(): Database {
       const dupsRemoved = beforeDedup - db.bankTransactions.length
       if (dupsRemoved > 0) console.log(`[db] Removed ${dupsRemoved} duplicate bank transactions`)
     }
+    // Auto-migrate: coachState
+    if (!db.coachState) {
+      db.coachState = {
+        dayAccumulator: '',
+        lastResetDate: '',
+        enabled: true,
+        globalTipsEmitted: [],
+        sessions: {},
+      }
+    }
     saveDatabase()
     } // end: if data valid
   } else {
@@ -789,7 +830,7 @@ export function initDatabase(): Database {
       weeklyReviews: [],
       chatConversations: [],
       chatSettings: {
-        model: 'claude-sonnet-4-5-20250929',
+        model: CHAT_MODEL,
         systemPromptMode: 'default',
         maxTokens: 4096
       },
@@ -802,9 +843,19 @@ export function initDatabase(): Database {
         geminiApiKey: '',
         groqApiKey: '',
         openrouterApiKey: '',
-        primaryModel: 'claude-sonnet-4-5-20250929',
-        fastModel: 'claude-haiku-4-5-20251001'
+        primaryModel: DEFAULT_MODEL,
+        fastModel: FAST_MODEL
       }
+    }
+    saveDatabase()
+  }
+
+  // Initialize ccSettings if missing
+  if (!(db as any).ccSettings) {
+    db.ccSettings = {
+      defaultEffort: DEFAULT_EFFORT,
+      defaultModel: DEFAULT_MODEL,
+      autoInferModel: true,
     }
     saveDatabase()
   }
@@ -893,7 +944,7 @@ export function initDatabase(): Database {
   // Initialize chatSettings if missing
   if (!db.chatSettings) {
     db.chatSettings = {
-      model: 'claude-sonnet-4-5-20250929',
+      model: CHAT_MODEL,
       systemPromptMode: 'default',
       maxTokens: 4096
     }
@@ -1012,10 +1063,26 @@ export function initDatabase(): Database {
       geminiApiKey: '',
       groqApiKey: '',
       openrouterApiKey: '',
-      primaryModel: 'claude-sonnet-4-5-20250929',
-      fastModel: 'claude-haiku-4-5-20251001'
+      primaryModel: DEFAULT_MODEL,
+      fastModel: FAST_MODEL
     }
     saveDatabase()
+  }
+
+  // Upgrade retired model ids saved by older versions to their successors
+  const modelFields: Array<[Record<string, any> | undefined, string]> = [
+    [db.ccSettings, 'defaultModel'],
+    [db.llmSettings, 'primaryModel'],
+    [db.llmSettings, 'fastModel'],
+    [db.chatSettings, 'model'],
+  ]
+  for (const [obj, key] of modelFields) {
+    if (!obj || typeof obj[key] !== 'string') continue
+    const next = normalizeModelId(obj[key])
+    if (next !== obj[key]) {
+      obj[key] = next
+      saveDatabase()
+    }
   }
 
   // Initialize bankConnections if missing
@@ -1158,6 +1225,18 @@ export function initDatabase(): Database {
     saveDatabase()
   }
 
+  // Initialize coachState if missing
+  if (!(db as any).coachState) {
+    db.coachState = {
+      dayAccumulator: '',
+      lastResetDate: '',
+      enabled: true,
+      globalTipsEmitted: [],
+      sessions: {},
+    }
+    saveDatabase()
+  }
+
   // Initialize telegram settings if missing
   if (!(db as any).telegramSettings) {
     db.telegramSettings = { botToken: '', authorizedChatId: '', enabled: false }
@@ -1202,9 +1281,18 @@ function saveDatabase() {
     console.error('[db] Backup failed:', err)
   }
 
-  // Write atomically: write to temp file, then rename
+  // Write atomically: write to a temp file, flush it to disk, then rename.
+  // The fsync is essential — without it NTFS can commit the rename metadata
+  // ahead of the data blocks, so a crash/power-loss/hard-kill leaves the live
+  // file zero-filled (the corruption that was crashing startup).
   const tmpPath = dbPath + '.tmp'
-  fs.writeFileSync(tmpPath, data, 'utf-8')
+  const fd = fs.openSync(tmpPath, 'w')
+  try {
+    fs.writeFileSync(fd, data, 'utf-8')
+    fs.fsyncSync(fd)
+  } finally {
+    fs.closeSync(fd)
+  }
   fs.renameSync(tmpPath, dbPath)
 }
 
@@ -1507,7 +1595,7 @@ export function getRecentNotes(limit: number = 7): DailyNote[] {
 
 // Twitter settings
 export function getTwitterSettings(): TwitterSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.twitter,
     bearerToken: getSecret('twitterBearerToken') || db.twitter.bearerToken || '',
@@ -1519,7 +1607,7 @@ export function getTwitterSettings(): TwitterSettings {
 }
 
 export function saveTwitterSettings(settings: Partial<TwitterSettings>): TwitterSettings {
-  const { setSecret } = require('./secrets')
+
   if (settings.bearerToken !== undefined) {
     setSecret('twitterBearerToken', settings.bearerToken)
     db.twitter.bearerToken = ''
@@ -1567,24 +1655,24 @@ export function removeRSSFeed(url: string): RSSFeed[] {
 }
 
 export function getClaudeApiKey(): string {
-  const { getSecret } = require('./secrets')
+
   return getSecret('claudeApiKey') || db.claudeApiKey || ''
 }
 
 export function saveClaudeApiKey(key: string): void {
-  const { setSecret } = require('./secrets')
+
   setSecret('claudeApiKey', key)
   db.claudeApiKey = ''
   saveDatabase()
 }
 
 export function getTavilyApiKey(): string {
-  const { getSecret } = require('./secrets')
+
   return getSecret('tavilyApiKey') || db.tavilyApiKey || ''
 }
 
 export function saveTavilyApiKey(key: string): void {
-  const { setSecret } = require('./secrets')
+
   setSecret('tavilyApiKey', key)
   db.tavilyApiKey = ''
   saveDatabase()
@@ -2162,9 +2250,37 @@ export function saveMemorySettings(updates: Partial<MemorySettings>): MemorySett
   return db.memorySettings
 }
 
+// Coach State
+export function getCoachState(): CoachDbState {
+  if (!db.coachState) {
+    db.coachState = {
+      dayAccumulator: '',
+      lastResetDate: '',
+      enabled: true,
+      globalTipsEmitted: [],
+      sessions: {},
+    }
+    saveDatabase()
+  }
+  return db.coachState
+}
+
+export function updateCoachState(updates: Partial<CoachDbState>): CoachDbState {
+  const defaults: CoachDbState = {
+    dayAccumulator: '',
+    lastResetDate: '',
+    enabled: true,
+    globalTipsEmitted: [],
+    sessions: {},
+  }
+  db.coachState = { ...(db.coachState || defaults), ...updates }
+  saveDatabase()
+  return db.coachState
+}
+
 // LLM Settings
 export function getLLMSettings(): LLMSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.llmSettings,
     geminiApiKey: getSecret('geminiApiKey') || db.llmSettings.geminiApiKey || '',
@@ -2174,7 +2290,7 @@ export function getLLMSettings(): LLMSettings {
 }
 
 export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
-  const { setSecret } = require('./secrets')
+
   if (updates.provider !== undefined) db.llmSettings.provider = updates.provider
   if (updates.geminiApiKey !== undefined) {
     setSecret('geminiApiKey', updates.geminiApiKey)
@@ -2194,9 +2310,22 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
   return getLLMSettings()
 }
 
+// CC Settings
+export function getCCSettings(): CCSettings {
+  return { ...db.ccSettings }
+}
+
+export function saveCCSettings(updates: Partial<CCSettings>): CCSettings {
+  if (updates.defaultEffort !== undefined) db.ccSettings.defaultEffort = updates.defaultEffort
+  if (updates.defaultModel !== undefined) db.ccSettings.defaultModel = updates.defaultModel
+  if (updates.autoInferModel !== undefined) db.ccSettings.autoInferModel = updates.autoInferModel
+  saveDatabase()
+  return getCCSettings()
+}
+
 // Telegram Settings
 export function getTelegramSettings(): TelegramSettings {
-  const { getSecret } = require('./secrets')
+
   return {
     ...db.telegramSettings,
     botToken: getSecret('telegramBotToken') || db.telegramSettings.botToken || '',
@@ -2204,7 +2333,7 @@ export function getTelegramSettings(): TelegramSettings {
 }
 
 export function saveTelegramSettings(updates: Partial<TelegramSettings>): TelegramSettings {
-  const { setSecret } = require('./secrets')
+
   if (updates.botToken !== undefined) {
     setSecret('telegramBotToken', updates.botToken)
     db.telegramSettings.botToken = ''
