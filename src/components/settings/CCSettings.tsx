@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react'
-
-const EFFORT_LEVELS = ['low', 'medium', 'high', 'max'] as const
-const MODELS = [
-  { id: 'claude-sonnet-4-5-20250929', label: 'Sonnet' },
-  { id: 'claude-opus-4-6', label: 'Opus 4.6' },
-  { id: 'claude-opus-4-7', label: 'Opus 4.7' },
-  { id: 'claude-haiku-4-5-20251001', label: 'Haiku' },
-]
+import { CLAUDE_MODELS, DEFAULT_MODEL, EFFORT_LEVELS } from '../../lib/models'
 
 export default function CCSettings() {
   const [effort, setEffort] = useState('high')
-  const [model, setModel] = useState('claude-sonnet-4-5-20250929')
+  const [model, setModel] = useState<string>(DEFAULT_MODEL)
   const [autoInfer, setAutoInfer] = useState(true)
 
   useEffect(() => {
@@ -56,7 +49,7 @@ export default function CCSettings() {
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-white/70">Default Model</span>
           <div className="flex bg-surface-2 rounded-lg p-0.5">
-            {MODELS.map((m) => (
+            {CLAUDE_MODELS.map((m) => (
               <button
                 key={m.id}
                 onClick={() => {
@@ -77,7 +70,7 @@ export default function CCSettings() {
         <div className="flex items-center justify-between">
           <div>
             <span className="text-[11px] text-white/70">Auto-infer model</span>
-            <p className="text-[9px] text-white/30">Switch to Opus for coding prompts</p>
+            <p className="text-[9px] text-white/30">Switch to Fable for coding prompts</p>
           </div>
           <button
             onClick={() => {

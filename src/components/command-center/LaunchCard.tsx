@@ -2,14 +2,22 @@ import { useState, useEffect, useCallback } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { Button, Dialog } from '../ui'
 import { Rocket, FolderPlus, FolderOpen, X } from 'lucide-react'
+import {
+  CLAUDE_MODELS,
+  CHAT_MODEL,
+  DEFAULT_MODEL,
+  DEFAULT_EFFORT,
+  EFFORT_LEVELS,
+  resolveModelId,
+} from '../../lib/models'
 
 export default function LaunchCard() {
   const { projects, launch, setLaunchOpen, loadProjects, launchPrefilledProject, setLaunchPrefilledProject } =
     useCommandCenterStore()
   const [projectPath, setProjectPath] = useState(launchPrefilledProject || '')
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('sonnet')
-  const [effort, setEffort] = useState('high')
+  const [model, setModel] = useState<string>(DEFAULT_MODEL)
+  const [effort, setEffort] = useState<string>(DEFAULT_EFFORT)
   const [autoInfer, setAutoInfer] = useState(true)
   const [maxBudget, setMaxBudget] = useState('')
   const [creatingNew, setCreatingNew] = useState(false)
@@ -22,13 +30,7 @@ export default function LaunchCard() {
   // Load CC defaults
   useEffect(() => {
     window.electronAPI.ccGetSettings().then((s) => {
-      const reverseMap: Record<string, string> = {
-        'claude-opus-4-6': 'opus',
-        'claude-opus-4-7': 'opus47',
-        'claude-sonnet-4-5-20250929': 'sonnet',
-        'claude-haiku-4-5-20251001': 'haiku',
-      }
-      setModel(reverseMap[s.defaultModel] || 'sonnet')
+      setModel(resolveModelId(s.defaultModel))
       setEffort(s.defaultEffort)
       setAutoInfer(s.autoInferModel)
     })
@@ -63,8 +65,8 @@ export default function LaunchCard() {
     const lower = text.toLowerCase()
     const codingSignals =
       /\b(implement|build|fix|refactor|write code|add feature|bug|test|migrate|endpoint|component|function|class|module|api)\b/
-    if (codingSignals.test(lower)) return 'opus'
-    return 'sonnet'
+    if (codingSignals.test(lower)) return DEFAULT_MODEL
+    return CHAT_MODEL
   }, [])
 
   const handleClose = () => {
@@ -74,14 +76,8 @@ export default function LaunchCard() {
 
   const handleLaunch = () => {
     if (!projectPath || !prompt.trim()) return
-    const modelMap: Record<string, string> = {
-      opus: 'claude-opus-4-6',
-      opus47: 'claude-opus-4-7',
-      sonnet: 'claude-sonnet-4-5-20250929',
-      haiku: 'claude-haiku-4-5-20251001',
-    }
     launch(projectPath, prompt.trim(), {
-      model: modelMap[model],
+      model,
       effort,
       maxBudget: maxBudget ? parseFloat(maxBudget) : undefined,
     })
@@ -187,19 +183,21 @@ export default function LaunchCard() {
           <div className="flex-1">
             <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Model</label>
             <select value={model} onChange={(e) => setModel(e.target.value)} className={inputClass}>
-              <option value="sonnet">Sonnet</option>
-              <option value="opus">Opus 4.6</option>
-              <option value="opus47">Opus 4.7</option>
-              <option value="haiku">Haiku</option>
+              {CLAUDE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex-1">
             <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Effort</label>
             <select value={effort} onChange={(e) => setEffort(e.target.value)} className={inputClass}>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="max">Max</option>
+              {EFFORT_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex-1">

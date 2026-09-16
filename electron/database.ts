@@ -4,6 +4,8 @@ import crypto from 'crypto'
 import { app } from 'electron'
 import { getSecret, setSecret } from './secrets'
 import type { CoachDbState } from '../src/types'
+import { CHAT_MODEL, DEFAULT_EFFORT, DEFAULT_MODEL, FAST_MODEL, normalizeModelId } from '../src/lib/models'
+import type { EffortLevel } from '../src/lib/models'
 
 interface Task {
   id: number
@@ -271,7 +273,7 @@ export interface LLMSettings {
 }
 
 export interface CCSettings {
-  defaultEffort: 'low' | 'medium' | 'high' | 'max'
+  defaultEffort: EffortLevel
   defaultModel: string
   autoInferModel: boolean
 }
@@ -828,7 +830,7 @@ export function initDatabase(): Database {
       weeklyReviews: [],
       chatConversations: [],
       chatSettings: {
-        model: 'claude-sonnet-4-5-20250929',
+        model: CHAT_MODEL,
         systemPromptMode: 'default',
         maxTokens: 4096
       },
@@ -841,8 +843,8 @@ export function initDatabase(): Database {
         geminiApiKey: '',
         groqApiKey: '',
         openrouterApiKey: '',
-        primaryModel: 'claude-sonnet-4-5-20250929',
-        fastModel: 'claude-haiku-4-5-20251001'
+        primaryModel: DEFAULT_MODEL,
+        fastModel: FAST_MODEL
       }
     }
     saveDatabase()
@@ -851,8 +853,8 @@ export function initDatabase(): Database {
   // Initialize ccSettings if missing
   if (!(db as any).ccSettings) {
     db.ccSettings = {
-      defaultEffort: 'high',
-      defaultModel: 'claude-sonnet-4-5-20250929',
+      defaultEffort: DEFAULT_EFFORT,
+      defaultModel: DEFAULT_MODEL,
       autoInferModel: true,
     }
     saveDatabase()
@@ -942,7 +944,7 @@ export function initDatabase(): Database {
   // Initialize chatSettings if missing
   if (!db.chatSettings) {
     db.chatSettings = {
-      model: 'claude-sonnet-4-5-20250929',
+      model: CHAT_MODEL,
       systemPromptMode: 'default',
       maxTokens: 4096
     }
@@ -1061,10 +1063,26 @@ export function initDatabase(): Database {
       geminiApiKey: '',
       groqApiKey: '',
       openrouterApiKey: '',
-      primaryModel: 'claude-sonnet-4-5-20250929',
-      fastModel: 'claude-haiku-4-5-20251001'
+      primaryModel: DEFAULT_MODEL,
+      fastModel: FAST_MODEL
     }
     saveDatabase()
+  }
+
+  // Upgrade retired model ids saved by older versions to their successors
+  const modelFields: Array<[Record<string, any> | undefined, string]> = [
+    [db.ccSettings, 'defaultModel'],
+    [db.llmSettings, 'primaryModel'],
+    [db.llmSettings, 'fastModel'],
+    [db.chatSettings, 'model'],
+  ]
+  for (const [obj, key] of modelFields) {
+    if (!obj || typeof obj[key] !== 'string') continue
+    const next = normalizeModelId(obj[key])
+    if (next !== obj[key]) {
+      obj[key] = next
+      saveDatabase()
+    }
   }
 
   // Initialize bankConnections if missing

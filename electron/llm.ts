@@ -2,24 +2,22 @@ import https from 'https'
 import http from 'http'
 import { getLLMSettings, getClaudeApiKey, LLMSettings } from './database'
 import { searchAndGather } from './web-search'
+import { CLAUDE_MODELS, CHAT_MODEL, FAST_MODEL, findModel } from '../src/lib/models'
 
 // --- Provider Model Registry ---
+
+// Claude lists come from the shared registry so there is one place to update.
+const claudeTiers = {
+  primary: CLAUDE_MODELS.filter((m) => m.id !== FAST_MODEL).map((m) => ({ id: m.id, name: m.name })),
+  fast: [FAST_MODEL, CHAT_MODEL].map((id) => ({ id, name: findModel(id)!.name })),
+}
+const claudeChatModels = CLAUDE_MODELS.map((m) => ({ id: m.id, name: m.name }))
 
 export const PROVIDER_MODELS: Record<
   string,
   { primary: { id: string; name: string }[]; fast: { id: string; name: string }[] }
 > = {
-  claude: {
-    primary: [
-      { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5' },
-      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },
-      { id: 'claude-opus-4-7', name: 'Claude Opus 4.7' },
-    ],
-    fast: [
-      { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
-      { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5' },
-    ],
-  },
+  claude: claudeTiers,
   gemini: {
     primary: [
       { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
@@ -45,27 +43,12 @@ export const PROVIDER_MODELS: Record<
     ],
     fast: [{ id: 'gpt-5.2-codex', name: 'GPT 5.2' }],
   },
-  claudeProxy: {
-    primary: [
-      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },
-      { id: 'claude-opus-4-7', name: 'Claude Opus 4.7' },
-    ],
-    fast: [
-      { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
-      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-    ],
-  },
+  claudeProxy: claudeTiers,
 }
 
 // All models available for the chat dropdown per provider
 export const PROVIDER_CHAT_MODELS: Record<string, { id: string; name: string }[]> = {
-  claude: [
-    { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5' },
-    { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
-    { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },
-    { id: 'claude-opus-4-7', name: 'Claude Opus 4.7' },
-  ],
+  claude: claudeChatModels,
   gemini: [
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
     { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
@@ -83,12 +66,7 @@ export const PROVIDER_CHAT_MODELS: Record<string, { id: string; name: string }[]
     { id: 'gpt-5.3-codex', name: 'GPT 5.3' },
     { id: 'gpt-5.2-codex', name: 'GPT 5.2' },
   ],
-  claudeProxy: [
-    { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-    { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
-    { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },
-    { id: 'claude-opus-4-7', name: 'Claude Opus 4.7' },
-  ],
+  claudeProxy: claudeChatModels,
 }
 
 // --- Check if LLM is configured ---
@@ -811,7 +789,7 @@ export async function verifyLLMKey(provider: string, key: string): Promise<{ val
     switch (provider) {
       case 'claude': {
         const body = {
-          model: 'claude-haiku-4-5-20251001',
+          model: FAST_MODEL,
           max_tokens: 10,
           messages: [{ role: 'user', content: 'Say ok' }],
         }
@@ -846,7 +824,7 @@ export async function verifyLLMKey(provider: string, key: string): Promise<{ val
         return { valid: true }
       }
       case 'claudeProxy': {
-        const body = { model: 'claude-sonnet-4-6', max_tokens: 10, messages: [{ role: 'user', content: 'Say ok' }] }
+        const body = { model: CHAT_MODEL, max_tokens: 10, messages: [{ role: 'user', content: 'Say ok' }] }
         await callLocalProxy('/claude/v1/chat/completions', body, 15000)
         return { valid: true }
       }

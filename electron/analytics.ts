@@ -3,6 +3,7 @@ import path from 'path'
 import readline from 'readline'
 import os from 'os'
 import { discoverSessions, type SessionMeta } from './session-parser'
+import { priceFor } from '../src/lib/models'
 import type {
   AVStats,
   AVSummary,
@@ -31,26 +32,8 @@ import type {
 
 // === Cost estimation (per 1M tokens) ===
 
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  'claude-opus-4': { input: 15, output: 75 },
-  'claude-opus-4-6': { input: 15, output: 75 },
-  'claude-opus-4-7': { input: 15, output: 75 },
-  'claude-sonnet-4-5': { input: 3, output: 15 },
-  'claude-sonnet-4-5-20250929': { input: 3, output: 15 },
-  'claude-sonnet-4-20250514': { input: 3, output: 15 },
-  'claude-haiku-4-5': { input: 0.8, output: 4 },
-  'claude-haiku-4-5-20251001': { input: 0.8, output: 4 },
-}
-
 function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  // Find matching cost entry by prefix
-  let costs = { input: 3, output: 15 } // default to sonnet pricing
-  for (const [key, val] of Object.entries(MODEL_COSTS)) {
-    if (model.startsWith(key) || model.includes(key)) {
-      costs = val
-      break
-    }
-  }
+  const costs = priceFor(model)
   return (inputTokens / 1_000_000) * costs.input + (outputTokens / 1_000_000) * costs.output
 }
 

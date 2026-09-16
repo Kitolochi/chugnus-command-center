@@ -3,13 +3,14 @@ import crypto from 'crypto'
 import { getCoachState, updateCoachState } from '../database'
 import type { CoachTip, CoachDbState } from '../../src/types'
 import type { CoachExchange } from './watcher'
+import { resolveModelId } from '../../src/lib/models'
 
 // --- Proxy HTTP helpers ---
 
 const PROXY_HOST = '127.0.0.1'
 const PROXY_PORT = 8741
 const PROXY_PATH = '/claude/v1/chat/completions'
-const MODEL = 'claude-opus-4-6'
+const MODEL = resolveModelId('opus')
 const MAX_TOKENS = 4096
 const TEMPERATURE = 0.3
 const ANALYSIS_TIMEOUT = 60_000

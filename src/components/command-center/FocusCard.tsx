@@ -21,13 +21,9 @@ import ConfettiOverlay from './ConfettiOverlay'
 import MCPDialog from './MCPDialog'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
+import { CLAUDE_MODELS, EFFORT_LEVELS, modelLabel, resolveModelId } from '../../lib/models'
 
-const MODEL_LABELS: Record<string, string> = {
-  'claude-opus-4-6': 'Opus 4.6',
-  'claude-opus-4-7': 'Opus 4.7',
-  'claude-sonnet-4-5-20250929': 'Sonnet',
-  'claude-haiku-4-5-20251001': 'Haiku',
-}
+const MODEL_ALIASES = CLAUDE_MODELS.map((m) => m.alias)
 
 function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () => void }) {
   const Icon = att.type === 'image' ? Image : att.type === 'video' ? Film : att.type === 'text' ? FileText : File
@@ -168,7 +164,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
 
     if (name === 'effort') {
-      const valid = ['low', 'medium', 'high', 'max']
+      const valid: string[] = [...EFFORT_LEVELS]
       if (!arg || !valid.includes(arg)) {
         showResult(
           '/effort',
@@ -189,16 +185,9 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
 
     if (name === 'model') {
-      const aliases: Record<string, string> = {
-        sonnet: 'claude-sonnet-4-5-20250929',
-        opus: 'claude-opus-4-6',
-        opus46: 'claude-opus-4-6',
-        opus47: 'claude-opus-4-7',
-        haiku: 'claude-haiku-4-5-20251001',
-      }
-      const modelId = aliases[arg?.toLowerCase()] || arg
+      const modelId = arg ? resolveModelId(arg) : ''
       if (!modelId) {
-        showResult('/model', 'Usage: /model <sonnet|opus|opus47|haiku>\nSwitches model. Restarts session.')
+        showResult('/model', `Usage: /model <${MODEL_ALIASES.join('|')}>\nSwitches model. Restarts session.`)
         return true
       }
       const sessionId = item.sessionId
@@ -258,8 +247,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
         '/help',
         [
           'Session:',
-          '  /effort <low|medium|high|max>  Set thinking level (restarts)',
-          '  /model <sonnet|opus|haiku>     Switch model (restarts)',
+          `  /effort <${EFFORT_LEVELS.join('|')}>  Set thinking level (restarts)`,
+          `  /model <${MODEL_ALIASES.join('|')}>  Switch model (restarts)`,
           '  /name <label>                  Name this session',
           '  /cost                          Session cost and stats',
           '  /status                        Full session info',
@@ -504,7 +493,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
               <div className="flex items-center gap-1">
                 {item.model && (
                   <span className="bg-surface-2 border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[10px] text-white/40 font-mono">
-                    {MODEL_LABELS[item.model] ?? item.model.slice(0, 12)}
+                    {modelLabel(item.model) ?? item.model.slice(0, 12)}
                   </span>
                 )}
                 {item.effort && (

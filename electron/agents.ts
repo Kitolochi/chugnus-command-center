@@ -20,18 +20,11 @@ import {
   type HeartbeatRun,
 } from './database'
 import { findSessionByPromptFragment, getSessionFilePath, isSessionComplete, extractSessionResult } from './cli-logs'
+import { CHAT_MODEL, priceFor } from '../src/lib/models'
 
-// Token pricing (per million tokens, in cents)
-const TOKEN_PRICING: Record<string, { input: number; output: number }> = {
-  'claude-opus-4-6': { input: 1500, output: 7500 },
-  'claude-opus-4-7': { input: 1500, output: 7500 },
-  'claude-sonnet-4-5-20250929': { input: 300, output: 1500 },
-  'claude-haiku-4-5-20251001': { input: 80, output: 400 },
-}
-
-function estimateCostCents(inputTokens: number, outputTokens: number, model = 'claude-sonnet-4-5-20250929'): number {
-  const pricing = TOKEN_PRICING[model] || TOKEN_PRICING['claude-sonnet-4-5-20250929']
-  return Math.round((inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000)
+function estimateCostCents(inputTokens: number, outputTokens: number, model = ''): number {
+  const pricing = priceFor(model)
+  return Math.round(((inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000) * 100)
 }
 
 function getAgentConfig(taskType?: string): { preamble: string; allowedTools: string } {
@@ -630,7 +623,7 @@ export async function pollAgentSessions(): Promise<boolean> {
               heartbeatRunId: run.id,
               source: 'heartbeat',
               provider: 'anthropic',
-              model: result.model || 'claude-sonnet-4-5-20250929',
+              model: result.model || CHAT_MODEL,
               inputTokens: result.totalInputTokens,
               outputTokens: result.totalOutputTokens,
               costCents,
