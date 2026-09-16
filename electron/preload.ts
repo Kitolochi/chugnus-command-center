@@ -199,6 +199,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('cc:exec-shell', opts) as Promise<{ stdout: string; stderr: string; code: number }>,
   ccGetSettings: () => ipcRenderer.invoke('cc:get-settings'),
   ccSaveSettings: (updates: any) => ipcRenderer.invoke('cc:save-settings', updates),
+  ccAnalyzeSession: (opts: { sessionId: string; projectPath: string }) =>
+    ipcRenderer.invoke('cc:analyze-session', opts),
+  ccRepairSession: (opts: { sessionId: string; projectPath: string }) => ipcRenderer.invoke('cc:repair-session', opts),
   onCCQueueUpdate: (callback: (queue: any[]) => void) => {
     const handler = (_: any, queue: any[]) => callback(queue)
     ipcRenderer.on('cc:queue-update', handler)

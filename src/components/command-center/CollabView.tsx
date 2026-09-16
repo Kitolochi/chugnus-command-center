@@ -12,7 +12,10 @@ function formatCost(usd: number): string {
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 
@@ -44,14 +47,13 @@ function HistoryItem({ session, onResume }: { session: CollabSession; onResume: 
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors"
       >
-        {expanded
-          ? <ChevronDown size={12} className="text-white/30 shrink-0" />
-          : <ChevronRight size={12} className="text-white/30 shrink-0" />
-        }
+        {expanded ? (
+          <ChevronDown size={12} className="text-white/30 shrink-0" />
+        ) : (
+          <ChevronRight size={12} className="text-white/30 shrink-0" />
+        )}
         <span className="text-[11px] text-white/70 flex-1 line-clamp-1 font-medium">{session.task}</span>
-        <span className={`px-1.5 py-0.5 rounded text-[8px] font-medium shrink-0 ${badge.className}`}>
-          {badge.text}
-        </span>
+        <span className={`px-1.5 py-0.5 rounded text-[8px] font-medium shrink-0 ${badge.className}`}>{badge.text}</span>
         <div className="flex items-center gap-2.5 text-[9px] text-white/30 shrink-0">
           <span className="flex items-center gap-0.5">
             <MessageSquare size={8} />
@@ -76,19 +78,20 @@ function HistoryItem({ session, onResume }: { session: CollabSession; onResume: 
             <div className="flex-1 min-w-0">
               {session.summary && (
                 <div
-                  className="text-[11px] text-white/60 leading-relaxed line-clamp-4 [&_pre]:my-1 [&_code]:text-[10px]"
+                  className="text-[11px] text-white/60 leading-relaxed max-h-32 overflow-y-auto [&_pre]:my-1 [&_code]:text-[10px]"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(session.summary) }}
                 />
               )}
-              {session.errorMessage && (
-                <p className="text-[11px] text-accent-red">{session.errorMessage}</p>
-              )}
+              {session.errorMessage && <p className="text-[11px] text-accent-red">{session.errorMessage}</p>}
               {session.parentSessionId && (
                 <p className="text-[9px] text-white/25 mt-1">Resumed from previous session</p>
               )}
             </div>
             <button
-              onClick={(e) => { e.stopPropagation(); onResume(session.id) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onResume(session.id)
+              }}
               className="flex items-center gap-1 px-2.5 py-1 bg-surface-3 text-white/50 rounded text-[10px] hover:text-accent-teal hover:bg-accent-teal/10 transition-colors shrink-0"
             >
               <RotateCcw size={10} />
@@ -118,10 +121,8 @@ function HistoryItem({ session, onResume }: { session: CollabSession; onResume: 
 }
 
 export default function CollabView() {
-  const {
-    collabSession, collabHistory,
-    startCollab, resumeCollab, loadCollabHistory, updateCollabSession,
-  } = useCommandCenterStore()
+  const { collabSession, collabHistory, startCollab, resumeCollab, loadCollabHistory, updateCollabSession } =
+    useCommandCenterStore()
 
   const [task, setTask] = useState('')
   const [maxRounds, setMaxRounds] = useState(4)
@@ -170,7 +171,9 @@ export default function CollabView() {
       <div className="bg-surface-1 rounded-xl border border-white/5 p-4">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={14} className="text-accent-teal" />
-          <h3 className="text-[13px] font-semibold text-white/80 font-accent tracking-tight">Dual-Agent Collaboration</h3>
+          <h3 className="text-[13px] font-semibold text-white/80 font-accent tracking-tight">
+            Dual-Agent Collaboration
+          </h3>
         </div>
         <p className="text-[10px] text-white/40 mb-3">
           Claude Opus 4.6 and GPT 5.4 collaborate on your task. They only ask for input when they need human judgment.
@@ -219,7 +222,9 @@ export default function CollabView() {
       {/* Past sessions */}
       {collabHistory.length > 0 && (
         <div>
-          <h3 className="text-[11px] font-semibold text-white/50 mb-2 font-accent tracking-wide uppercase">Past Sessions</h3>
+          <h3 className="text-[11px] font-semibold text-white/50 mb-2 font-accent tracking-wide uppercase">
+            Past Sessions
+          </h3>
           <div className="space-y-1.5">
             {collabHistory.map((session) => (
               <HistoryItem key={session.id} session={session} onResume={handleResume} />

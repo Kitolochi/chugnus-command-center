@@ -24,6 +24,7 @@ import { findSessionByPromptFragment, getSessionFilePath, isSessionComplete, ext
 // Token pricing (per million tokens, in cents)
 const TOKEN_PRICING: Record<string, { input: number; output: number }> = {
   'claude-opus-4-6': { input: 1500, output: 7500 },
+  'claude-opus-4-7': { input: 1500, output: 7500 },
   'claude-sonnet-4-5-20250929': { input: 300, output: 1500 },
   'claude-haiku-4-5-20251001': { input: 80, output: 400 },
 }

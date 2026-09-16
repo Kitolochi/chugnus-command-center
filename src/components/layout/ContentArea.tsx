@@ -23,9 +23,9 @@ export default function ContentArea() {
   }
 
   return (
-    <div className="flex-1 relative z-10 bg-surface-0/50 backdrop-blur-sm overflow-auto">
+    <div className="flex-1 min-h-0 relative z-10 bg-surface-0/50 backdrop-blur-sm">
       <ErrorBoundary key={activeTab}>
-        <div key={activeTab} className="tab-content-enter">
+        <div key={activeTab} className="tab-content-enter h-full overflow-auto">
           {renderTab()}
         </div>
       </ErrorBoundary>

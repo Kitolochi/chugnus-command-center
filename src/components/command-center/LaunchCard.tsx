@@ -24,6 +24,7 @@ export default function LaunchCard() {
     window.electronAPI.ccGetSettings().then((s) => {
       const reverseMap: Record<string, string> = {
         'claude-opus-4-6': 'opus',
+        'claude-opus-4-7': 'opus47',
         'claude-sonnet-4-5-20250929': 'sonnet',
         'claude-haiku-4-5-20251001': 'haiku',
       }
@@ -75,6 +76,7 @@ export default function LaunchCard() {
     if (!projectPath || !prompt.trim()) return
     const modelMap: Record<string, string> = {
       opus: 'claude-opus-4-6',
+      opus47: 'claude-opus-4-7',
       sonnet: 'claude-sonnet-4-5-20250929',
       haiku: 'claude-haiku-4-5-20251001',
     }
@@ -186,7 +188,8 @@ export default function LaunchCard() {
             <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Model</label>
             <select value={model} onChange={(e) => setModel(e.target.value)} className={inputClass}>
               <option value="sonnet">Sonnet</option>
-              <option value="opus">Opus</option>
+              <option value="opus">Opus 4.6</option>
+              <option value="opus47">Opus 4.7</option>
               <option value="haiku">Haiku</option>
             </select>
           </div>

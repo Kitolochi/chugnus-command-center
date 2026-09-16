@@ -23,7 +23,8 @@ import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
 
 const MODEL_LABELS: Record<string, string> = {
-  'claude-opus-4-6': 'Opus',
+  'claude-opus-4-6': 'Opus 4.6',
+  'claude-opus-4-7': 'Opus 4.7',
   'claude-sonnet-4-5-20250929': 'Sonnet',
   'claude-haiku-4-5-20251001': 'Haiku',
 }
@@ -191,11 +192,13 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
       const aliases: Record<string, string> = {
         sonnet: 'claude-sonnet-4-5-20250929',
         opus: 'claude-opus-4-6',
+        opus46: 'claude-opus-4-6',
+        opus47: 'claude-opus-4-7',
         haiku: 'claude-haiku-4-5-20251001',
       }
       const modelId = aliases[arg?.toLowerCase()] || arg
       if (!modelId) {
-        showResult('/model', 'Usage: /model <sonnet|opus|haiku>\nSwitches model. Restarts session.')
+        showResult('/model', 'Usage: /model <sonnet|opus|opus47|haiku>\nSwitches model. Restarts session.')
         return true
       }
       const sessionId = item.sessionId

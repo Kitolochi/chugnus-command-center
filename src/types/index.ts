@@ -759,6 +759,23 @@ export interface ElectronAPI {
   ccSaveSettings: (
     updates: Partial<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean }>
   ) => Promise<any>
+  ccAnalyzeSession: (opts: { sessionId: string; projectPath: string }) => Promise<{
+    filePath: string
+    exists: boolean
+    totalLines: number
+    validLines: number
+    healthy: boolean
+    issue?: string
+    truncateAt?: number
+    danglingToolUseIds: string[]
+  }>
+  ccRepairSession: (opts: { sessionId: string; projectPath: string }) => Promise<{
+    ok: boolean
+    message: string
+    backupPath?: string
+    removedLines?: number
+    keptLines?: number
+  }>
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
 
   // Codex Chat (GPT 5.4)

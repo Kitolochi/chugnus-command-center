@@ -74,7 +74,7 @@ interface ManagedProcess {
 const ACCENT_COLORS = ['blue', 'purple', 'red', 'cyan', 'green', 'orange', 'amber', 'pink']
 const MAX_PROCESSES = 10
 const MAX_LOG_ENTRIES = 200
-const MAX_RESULT_TEXT = 2000
+const MAX_RESULT_TEXT = 50000
 
 // --- State ---
 

@@ -12,6 +12,7 @@ import {
   getQueue,
   getProcessLog,
 } from '../command-center'
+import { analyzeSession, repairSession } from '../session-repair'
 import {
   getCCHistory,
   addCCHistoryEntry,
@@ -46,6 +47,29 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
       }
     ) => {
       upsertKnownProject(opts.projectPath)
+
+      if (opts.resumeSessionId) {
+        const analysis = analyzeSession(opts.resumeSessionId, opts.projectPath)
+        if (analysis.exists && !analysis.healthy && analysis.truncateAt !== undefined) {
+          const choice = await dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            buttons: ['Trim & Resume', 'Cancel'],
+            defaultId: 0,
+            cancelId: 1,
+            title: 'Session needs repair',
+            message: 'This session was interrupted mid-tool (likely a rate limit).',
+            detail: `${analysis.issue}\n\nTrimming will roll back ${analysis.totalLines - analysis.truncateAt} line(s) to the last completed assistant turn. The original file will be backed up before changes are made.`,
+          })
+          if (choice.response !== 0) {
+            throw new Error('Session repair cancelled')
+          }
+          const result = repairSession(opts.resumeSessionId, opts.projectPath)
+          if (!result.ok) {
+            throw new Error(`Repair failed: ${result.message}`)
+          }
+        }
+      }
+
       const item = launchProcess(opts)
 
       // Save to history immediately on launch
@@ -206,4 +230,12 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
   ipcMain.handle('cc:get-settings', () => getCCSettings())
 
   ipcMain.handle('cc:save-settings', (_, updates: Partial<CCSettings>) => saveCCSettings(updates))
+
+  ipcMain.handle('cc:analyze-session', (_, opts: { sessionId: string; projectPath: string }) => {
+    return analyzeSession(opts.sessionId, opts.projectPath)
+  })
+
+  ipcMain.handle('cc:repair-session', (_, opts: { sessionId: string; projectPath: string }) => {
+    return repairSession(opts.sessionId, opts.projectPath)
+  })
 }
