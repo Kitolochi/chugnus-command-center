@@ -441,37 +441,6 @@ async function runLoop(session: CollabSession, maxRounds: number, signal: AbortS
   }
 }
 
-// === Codex (GPT 5.4) standalone chat ===
-
-const CODEX_SYSTEM = `You are GPT-5.4 (Codex), a senior software architect and code reviewer. The user may provide project file trees and source code for you to review.
-
-When reviewing code:
-- Focus on architecture, patterns, correctness, and potential issues
-- Be specific — reference file names and line-level concerns
-- Suggest concrete improvements, not vague advice
-- If the code is good, say so briefly and move on
-
-Be direct and concise. No pleasantries.`
-
-export async function codexChat(
-  messages: Array<{ role: string; content: string }>,
-): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
-  const fullMessages = [
-    { role: 'system', content: CODEX_SYSTEM },
-    ...messages,
-  ]
-
-  const { content, tokensIn, tokensOut } = await callProxy(GPT_ENDPOINT, {
-    model: GPT_MODEL,
-    messages: fullMessages,
-    max_tokens: MAX_TOKENS,
-    temperature: 0.5,
-  })
-
-  if (!content) throw new Error('Empty response from Codex')
-  return { content, tokensIn, tokensOut }
-}
-
 export function readProjectTree(projectPath: string, maxDepth = 3): string {
   const fs = require('fs')
   const path = require('path')

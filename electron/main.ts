@@ -50,6 +50,7 @@ import { scaffoldDomainFolders } from './ipc/system'
 import { runDueAgentHeartbeats, pollAgentSessions, setLaunchFn } from './agents'
 import { setAgentLaunchFn } from './ipc/agents'
 import { shutdownAllProcesses } from './command-center'
+import { shutdownCodexSessions } from './codex-sessions'
 import { initSecrets, migrateSecretsFromDb } from './secrets'
 import { getPlaintextSecrets, clearPlaintextSecrets } from './database'
 import { initCoach, destroyCoach } from './usage-coach'
@@ -359,6 +360,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   destroyCoach()
   shutdownAllProcesses()
+  shutdownCodexSessions()
   if (tray) {
     tray.destroy()
     tray = null

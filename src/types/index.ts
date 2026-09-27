@@ -778,11 +778,17 @@ export interface ElectronAPI {
   }>
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
 
-  // Codex Chat (GPT 5.4)
-  codexSend: (opts: {
-    messages: { role: string; content: string }[]
-    projectPath?: string
-  }) => Promise<{ content: string; tokensIn: number; tokensOut: number }>
+  // Native Codex coding sessions
+  codexStatus: () => Promise<import('./codex').CodexStatus>
+  codexSessions: () => Promise<import('./codex').CodexSession[]>
+  codexHistory: () => Promise<import('./codex').CodexHistoryEntry[]>
+  codexImport: (threadId: string) => Promise<import('./codex').CodexSession>
+  codexExtractMemories: (threadId: string) => Promise<Memory[]>
+  codexTurn: (opts: import('./codex').CodexTurnOptions) => Promise<import('./codex').CodexSession>
+  codexStop: (id: string) => Promise<void>
+  codexArchive: (id: string, archived: boolean) => Promise<void>
+  codexPickFiles: () => Promise<string[]>
+  onCodexSessionUpdate: (callback: (session: import('./codex').CodexSession) => void) => () => void
   codexReadTree: (opts: { projectPath: string }) => Promise<string>
   codexReadFile: (opts: { filePath: string }) => Promise<string>
   codexReadFileForChat: (opts: { filePath: string }) => Promise<FileAttachment>

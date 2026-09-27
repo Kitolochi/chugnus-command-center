@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { chunkAllFiles, Chunk } from './chunker'
 import { embedText, embedBatch, getEmbeddingStatus } from './embeddings'
-import { discoverSessions, parseSession, sessionFileHash } from './session-parser'
+import { discoverSessions, parseSession, sessionFileHash, sessionSourceFile } from './session-parser'
 import { buildBM25Index, saveBM25Index, loadBM25Index, searchBM25, deleteBM25Index } from './bm25-index'
 import * as lancedb from '@lancedb/lancedb'
 import {
@@ -177,7 +177,7 @@ async function _rebuildIndexInner(
 
     // Compute hashes and detect changes
     for (const meta of sessions) {
-      const key = `sessions/${meta.project}/${meta.sessionId}.jsonl`
+      const key = sessionSourceFile(meta)
       const hash = sessionFileHash(meta)
       currentSessionHashes[key] = hash
       if (existingSessionHashes[key] !== hash) {
@@ -196,7 +196,7 @@ async function _rebuildIndexInner(
     // Parse only changed sessions
     if (changedSessionFiles.size > 0) {
       const changedMetas = sessions.filter(m =>
-        changedSessionFiles.has(`sessions/${m.project}/${m.sessionId}.jsonl`)
+        changedSessionFiles.has(sessionSourceFile(m))
       )
       let parsed = 0
       for (const meta of changedMetas) {
@@ -297,7 +297,7 @@ async function _rebuildIndexInner(
       // Re-parse unchanged sessions for BM25 completeness
       const sessions = discoverSessions()
       const unchangedMetas = sessions.filter(m =>
-        !changedSessionFiles.has(`sessions/${m.project}/${m.sessionId}.jsonl`)
+        !changedSessionFiles.has(sessionSourceFile(m))
       )
       for (const meta of unchangedMetas) {
         try {

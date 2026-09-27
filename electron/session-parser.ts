@@ -4,6 +4,7 @@ import readline from 'readline'
 import crypto from 'crypto'
 import os from 'os'
 import { Chunk } from './chunker'
+import { codexMessage, discoverCodexHistory } from './codex-history'
 
 export interface SessionMeta {
   path: string
@@ -11,6 +12,7 @@ export interface SessionMeta {
   sessionId: string
   size: number
   mtimeMs: number
+  provider?: 'claude' | 'codex'
 }
 
 const CHUNK_TARGET = 500
@@ -24,9 +26,7 @@ function getClaudeProjectsDir(): string {
 /** Discover all JSONL session files across Claude Code projects */
 export function discoverSessions(): SessionMeta[] {
   const projectsDir = getClaudeProjectsDir()
-  if (!fs.existsSync(projectsDir)) return []
-
-  const sessions: SessionMeta[] = []
+  const sessions: SessionMeta[] = discoverCodexHistory().map(entry => ({ path: entry.filePath, project: `codex-${path.basename(entry.projectPath)}`, sessionId: entry.threadId, size: entry.size, mtimeMs: entry.updatedAt, provider: 'codex' }))
   try {
     const projectDirs = fs.readdirSync(projectsDir, { withFileTypes: true })
       .filter(d => d.isDirectory())
@@ -66,6 +66,11 @@ export function sessionFileHash(meta: SessionMeta): string {
     }
   }
   return `${meta.size}:${meta.mtimeMs}`
+}
+
+export function sessionSourceFile(meta: SessionMeta): string {
+  const project = meta.provider === 'codex' ? meta.project : friendlyProjectName(meta.project)
+  return `sessions/${project}/${meta.sessionId}.jsonl`
 }
 
 /** Extract text content from a parsed JSONL message (matches cli-logs.ts pattern) */
@@ -109,6 +114,13 @@ export async function parseSession(meta: SessionMeta): Promise<Chunk[]> {
     rl.on('line', (line) => {
       try {
         const parsed = JSON.parse(line)
+        if (meta.provider === 'codex') {
+          const message = codexMessage(parsed)
+          if (!message) return
+          if (!firstUserPrompt && message.role === 'user') firstUserPrompt = message.content.slice(0, 80)
+          blocks.push({ role: message.role, text: message.role === 'assistant' ? message.content.slice(0, MAX_ASSISTANT_LEN) : message.content })
+          return
+        }
         if (SKIP_TYPES.has(parsed.type)) return
         if (parsed.isMeta) return
         if (parsed.type !== 'user' && parsed.type !== 'assistant') return
@@ -134,9 +146,9 @@ export async function parseSession(meta: SessionMeta): Promise<Chunk[]> {
     rl.on('close', () => {
       if (blocks.length === 0) { resolve([]); return }
 
-      const project = friendlyProjectName(meta.project)
+      const project = meta.provider === 'codex' ? meta.project : friendlyProjectName(meta.project)
       const domain = `sessions/${project}`
-      const sourceFile = `sessions/${project}/${meta.sessionId}.jsonl`
+      const sourceFile = sessionSourceFile(meta)
       const heading = firstUserPrompt || meta.sessionId
       const hash = sessionFileHash(meta)
 
@@ -191,5 +203,6 @@ export async function parseSession(meta: SessionMeta): Promise<Chunk[]> {
     })
 
     rl.on('error', () => resolve([]))
+    stream.on('error', () => resolve([]))
   })
 }

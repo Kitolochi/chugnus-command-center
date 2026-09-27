@@ -465,7 +465,16 @@ export function installElectronMock() {
     onCCQueueUpdate: noopUnsub as any,
 
     // Codex Chat
-    codexSend: async () => ({ content: 'Mock Codex response', tokensIn: 0, tokensOut: 0 }),
+    codexStatus: async () => ({ available: false, error: 'Open the desktop app to run Codex. Browser previews cannot launch local coding sessions.' }),
+    codexSessions: emptyArray,
+    codexHistory: emptyArray,
+    codexImport: async () => { throw new Error('Codex sessions require the desktop app') },
+    codexExtractMemories: async () => { throw new Error('Memory extraction requires the desktop app') },
+    codexTurn: async () => { throw new Error('Codex sessions require the desktop app') },
+    codexStop: noop,
+    codexArchive: noop,
+    codexPickFiles: emptyArray,
+    onCodexSessionUpdate: noopUnsub,
     codexReadTree: async () => 'mock-project/\n  src/\n    index.ts',
     codexReadFile: async () => '// mock file content',
     codexReadFileForChat: async () => ({ type: 'text', name: 'mock.txt', mimeType: 'text/plain', sizeKb: 1, textContent: '// mock' }),

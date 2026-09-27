@@ -10,6 +10,7 @@ import { registerCommandCenterHandlers } from './command-center'
 import { registerDualAgentHandlers } from './dual-agent'
 import { registerTelegramHandlers } from './telegram'
 import { registerCoachHandlers } from './coach'
+import { registerCodexHandlers } from './codex'
 
 export function registerAllHandlers(mainWindow: BrowserWindow) {
   registerAIHandlers(mainWindow)
@@ -21,6 +22,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow) {
   registerAgentsViewHandlers()
   registerCommandCenterHandlers(mainWindow)
   registerDualAgentHandlers(mainWindow)
+  registerCodexHandlers(mainWindow)
   registerTelegramHandlers()
   registerCoachHandlers()
 }

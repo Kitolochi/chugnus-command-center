@@ -18,6 +18,25 @@ Built with Electron 28 + React 18 + TypeScript + Tailwind CSS + Zustand.
 
 ## Architecture
 
+### Codex project sessions
+
+The Command Center's **Codex** tab runs the installed Codex CLI directly with your existing `codex login` credentials and configuration. It does not require the local chat proxy.
+
+- Select or browse a project, enter a task, and send. Codex can read/edit files and run commands in that directory.
+- Live activity shows tool calls and command output; completed edits and token usage are tracked.
+- Continue the same thread with follow-ups, run multiple tasks, stop a running turn, or park sessions in History and restore them later.
+- Attach files with the paperclip or drag/drop. Supported images are passed as actual image input; other files are referenced by absolute path for Codex's tools.
+- Leave model and effort blank to use Codex configuration, or choose overrides. Access defaults to **Edit project**; **Read only** and **Full access** are explicit alternatives. Noninteractive runs cannot display approval dialogs; operations outside the selected access policy are rejected.
+- On Windows, if standard sandbox setup fails, enable **Windows compatibility sandbox**. This uses OpenAI's documented `windows.sandbox="unelevated"` fallback for this app's turns, preserves the selected access policy, and leaves global Codex configuration unchanged. See [OpenAI configuration guidance](https://learn.chatgpt.com/docs/config-file/config-basic#windows-sandbox-mode).
+
+Session history is stored separately in `%APPDATA%/chugnus-command-center/codex-sessions.json`; underlying Codex threads remain in Codex's own session storage. History also discovers local Codex threads started outside the app, searches by task/project, and opens their transcripts for continuation. Imported transcripts show the latest 400 messages; Codex retains the full underlying thread. Claude's coach/analytics and Claude-specific slash commands are not included. Follow-ups are sent after a turn finishes or is stopped; mid-turn steering is not supported by this `codex exec` integration.
+
+Codex uses the same saved-memory store as the rest of Chungus. Relevant memories are included in new turns, with their count shown in the session. **Extract memories** saves useful information from a transcript using the AI provider configured in Settings; the existing auto-generation setting also applies to completed Codex turns. Batch extraction includes recent Codex sessions. **Update knowledge search index** includes Codex transcripts alongside Claude history and context files in shared search. System instructions, reasoning, and tool payloads are excluded from transcript indexing.
+
+`apache-arrow` is an explicit runtime dependency because LanceDB requires it in packaged builds; leaving it as an implicit peer dependency causes a JavaScript startup error in the Windows executable.
+
+Set `CODEX_BINARY` to a native Codex executable if it cannot be discovered automatically. Protocol/lifecycle regression tests run with `npm test`.
+
 ```
 electron/
   main.ts               # Entry point, BrowserWindow, tray, model loading

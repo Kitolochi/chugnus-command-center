@@ -1,6 +1,7 @@
 import { getChatConversation, getChatConversations, getDailyNote, getRecentNotes, getAllMemories, createMemory, getMemoryTopics, getMemorySettings } from './database'
 import { getCliSessions, getCliSessionMessages } from './cli-logs'
 import { callLLM, isLLMConfigured } from './llm'
+import { discoverCodexHistory, readCodexTranscript } from './codex-history'
 
 interface ExtractedMemory {
   title: string
@@ -118,11 +119,13 @@ export async function extractMemoriesFromChat(conversationId: string): Promise<a
   return created
 }
 
-export async function extractMemoriesFromCli(sessionId: string): Promise<any[]> {
+export async function extractMemoriesFromCli(sessionId: string, strict = false): Promise<any[]> {
   if (!isLLMConfigured()) return []
 
   try {
-    const { messages } = await getCliSessionMessages(sessionId, 0, 50)
+    const { messages } = sessionId.startsWith('codex:')
+      ? { messages: (await readCodexTranscript(sessionId.slice(6))).messages.slice(-50).map(m => ({ type: m.role, content: m.content })) }
+      : await getCliSessionMessages(sessionId, 0, 50)
     if (messages.length < 2) return []
 
     const content = messages.map(m => `${m.type}: ${m.content.slice(0, 500)}`).join('\n\n')
@@ -134,7 +137,7 @@ export async function extractMemoriesFromCli(sessionId: string): Promise<any[]> 
 
     for (const mem of extracted) {
       if (!isDuplicateMemory(mem, allMemories)) {
-        const preview = messages[0]?.content.slice(0, 100) || ''
+        const preview = (sessionId.startsWith('codex:') ? 'Codex: ' : '') + (messages[0]?.content.slice(0, 100) || '')
         const newMem = createMemory({
           title: mem.title,
           content: mem.content,
@@ -153,7 +156,8 @@ export async function extractMemoriesFromCli(sessionId: string): Promise<any[]> 
     }
 
     return created
-  } catch {
+  } catch (error) {
+    if (strict) throw error
     return []
   }
 }
@@ -232,6 +236,12 @@ export async function batchExtractMemories(): Promise<any[]> {
       } catch { /* continue */ }
     }
   } catch { /* CLI logs may not exist */ }
+
+  for (const session of discoverCodexHistory().slice(0, 5)) {
+    const sourceId = `codex:${session.threadId}`
+    if (processedSessions.has(sourceId)) continue
+    allCreated.push(...await extractMemoriesFromCli(sourceId))
+  }
 
   return allCreated
 }

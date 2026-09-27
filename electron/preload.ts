@@ -210,9 +210,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
-  // Codex (GPT 5.4) Chat
-  codexSend: (opts: { messages: { role: string; content: string }[]; projectPath?: string }) =>
-    ipcRenderer.invoke('codex:send', opts),
+  // Native Codex coding sessions
+  codexStatus: () => ipcRenderer.invoke('codex:status'),
+  codexSessions: () => ipcRenderer.invoke('codex:sessions'),
+  codexHistory: () => ipcRenderer.invoke('codex:history'),
+  codexImport: (threadId: string) => ipcRenderer.invoke('codex:import', threadId),
+  codexExtractMemories: (threadId: string) => ipcRenderer.invoke('codex:extract-memories', threadId),
+  codexTurn: (opts: import('../src/types/codex').CodexTurnOptions) => ipcRenderer.invoke('codex:turn', opts),
+  codexStop: (id: string) => ipcRenderer.invoke('codex:stop', id),
+  codexArchive: (id: string, archived: boolean) => ipcRenderer.invoke('codex:archive', id, archived),
+  codexPickFiles: () => ipcRenderer.invoke('codex:pick-files'),
+  onCodexSessionUpdate: (callback: (session: import('../src/types/codex').CodexSession) => void) => {
+    const handler = (_: unknown, session: import('../src/types/codex').CodexSession) => callback(session)
+    ipcRenderer.on('codex:session-update', handler)
+    return () => ipcRenderer.removeListener('codex:session-update', handler)
+  },
   codexReadTree: (opts: { projectPath: string }) => ipcRenderer.invoke('codex:read-tree', opts),
   codexReadFile: (opts: { filePath: string }) => ipcRenderer.invoke('codex:read-file', opts),
   codexReadFileForChat: (opts: { filePath: string }) => ipcRenderer.invoke('codex:read-file-for-chat', opts),

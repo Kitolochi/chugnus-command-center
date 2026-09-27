@@ -13,3 +13,6 @@ nul
 python/.venv/
 python/__pycache__/
 *.pyc
+
+# Local Codex integration verification artifacts
+.codex-check/

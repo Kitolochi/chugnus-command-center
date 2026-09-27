@@ -8,7 +8,6 @@ import {
   respondToCollab,
   killCollabSession,
   getActiveCollabSession,
-  codexChat,
   readProjectTree,
   readFileContent,
   readFileForChat,
@@ -49,11 +48,6 @@ export function registerDualAgentHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('collab:get-history', (_, opts?: { limit?: number }) => {
     return getCollabHistory(opts?.limit)
-  })
-
-  // Codex (GPT 5.4) chat handlers
-  ipcMain.handle('codex:send', async (_, opts: { messages: { role: string; content: string }[]; projectPath?: string }) => {
-    return codexChat(opts.messages)
   })
 
   ipcMain.handle('codex:read-tree', (_, opts: { projectPath: string }) => {

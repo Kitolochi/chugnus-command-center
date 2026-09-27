@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
+import { useCodexStore } from '../../store/codexStore'
 import { Button, EmptyState } from '../ui'
 import { ArrowLeft, Layers, Plus, RotateCcw } from 'lucide-react'
 import PomodoroWidget from './PomodoroWidget'
@@ -218,6 +219,7 @@ export default function CommandCenter() {
               </div>
               <CoachStatusBadge />
               <Button variant="primary" size="sm" onClick={() => {
+                if (activeView === 'codex') { useCodexStore.getState().newTask(); return }
                 if (selectedProject) setLaunchPrefilledProject(selectedProject)
                 setLaunchOpen(true)
               }}>
