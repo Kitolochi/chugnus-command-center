@@ -47,6 +47,10 @@ export interface CodexSession {
   imported?: boolean
   pendingTurns?: { id: string; options: CodexTurnOptions }[]
   queuePaused?: boolean
+  pauseReason?: 'user' | 'error'
+  resumeOnRestart?: boolean
+  activeTurn?: CodexTurnOptions
+  worker?: { pid: number; parentPid: number; startedAt: number }
   messages: CodexMessage[]
   activeMessageId?: string
   lastEventAt?: number

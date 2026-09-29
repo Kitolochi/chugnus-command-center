@@ -7,12 +7,14 @@ import { useRef, useState } from 'react'
 import { FolderOpen, Paperclip, Send, Square, X } from 'lucide-react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { useCodexStore } from '../../store/codexStore'
+import { useSessionCollapse } from '../../hooks/useSessionCollapse'
 import type { CodexAccess, CodexSession } from '../../types/codex'
 
 const fieldClass =
   'bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 min-w-0 focus:outline-none focus:border-accent-blue/40'
 
 export default function CodexComposer({ session }: { session?: CodexSession }) {
+  const [queueCollapsed, toggleQueue] = useSessionCollapse(session?.id || 'new', 'pending')
   const { projects, selectedProject, loadProjects } = useCommandCenterStore()
   const { send, stop, sending } = useCodexStore()
   const [projectPath, setProjectPath] = useState(session?.projectPath || selectedProject || '')
@@ -202,8 +204,9 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
           <div className="flex items-center justify-between text-[10px] text-accent-blue">
             <span>
               {session.pendingTurns.length} queued{' '}
-              {session.queuePaused ? '- paused' : '- will run after the current turn'}
+              {session.queuePaused ? session.pauseReason === 'error' ? '- needs attention' : '- paused' : '- continues automatically'}
             </span>
+            <button onClick={toggleQueue} aria-expanded={!queueCollapsed} className="underline">{queueCollapsed ? 'Show queued messages' : 'Hide queued messages'}</button>
             {session.queuePaused && (
               <button
                 onClick={async () => {
@@ -215,11 +218,11 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
                 }}
                 className="underline"
               >
-                Resume queued messages
+                Resume work & queue
               </button>
             )}
           </div>
-          {session.pendingTurns.map((pending, index) => (
+          {!queueCollapsed && session.pendingTurns.map((pending, index) => (
             <div key={pending.id} className="flex items-start justify-between gap-2 text-[11px] text-white/60">
               <div className="min-w-0"><span className="text-[9px] text-accent-blue">{index === 0 ? 'Next' : `Waiting ${index + 1}`} · Queued — not sent yet</span><p className="whitespace-pre-wrap break-words">{pending.options.prompt}</p></div>
               <button

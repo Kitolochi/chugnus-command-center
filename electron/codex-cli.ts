@@ -42,7 +42,7 @@ export function buildCodexArgs(opts: CodexTurnOptions, threadId?: string): strin
 
 export function applyCodexEvent(session: CodexSession, event: any, turnId: string): void {
   session.lastEventAt = Date.now()
-  const request = session.messages.find(m => m.id === `${turnId}-user`)
+  const request = session.messages.find(m => m.id === (session.activeMessageId || `${turnId}-user`))
   if (request && (event.type === 'turn.started' || event.type?.startsWith('item.')) && request.state === 'starting') {
     request.state = 'working'
     request.startedAt = Date.now()

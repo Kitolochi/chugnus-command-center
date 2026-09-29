@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Badge } from '../ui'
-import { Loader2, Send, MessageSquare, AlertTriangle, Square } from 'lucide-react'
+import { Loader2, Send, MessageSquare, AlertTriangle, Square, Minimize2, Maximize2 } from 'lucide-react'
+import { useSessionCollapse } from '../../hooks/useSessionCollapse'
 import ConversationContext from './ConversationContext'
 
 export default function CollapsedCard({
@@ -14,6 +15,7 @@ export default function CollapsedCard({
   actions?: { respond: (id: string, text: string) => Promise<boolean>; park: (id: string) => void; busy?: boolean }
 }) {
   const claude = useCommandCenterStore()
+  const [compact, toggleCompact] = useSessionCollapse(item.processId, 'card')
   const { respond, park } = actions ?? claude
   const [showInput, setShowInput] = useState(false)
   const [text, setText] = useState('')
@@ -60,6 +62,7 @@ export default function CollapsedCard({
             <span className="text-[10px] text-white/40 truncate max-w-[200px]">{item.prompt.slice(0, 60)}</span>
           </div>
           <div className="flex items-center gap-2">
+            <button aria-label={compact ? 'Expand card details' : 'Minimize card details'} title={compact ? 'Expand card details' : 'Minimize card details'} onClick={e => { e.stopPropagation(); toggleCompact() }} className="p-1 text-white/40 hover:text-white">{compact ? <Maximize2 size={11} /> : <Minimize2 size={11} />}</button>
             {(actions || item.status !== 'errored') && (
               <button
                 onClick={(e) => {
@@ -107,15 +110,15 @@ export default function CollapsedCard({
             </span>
           </div>
         </div>
-        {item.status === 'working' && item.latestRequest && <p className="mt-2 text-[10px] text-accent-blue line-clamp-2">Working on: {item.latestRequest}</p>}
-        {item.status === 'working' && item.latestActivity && <p className="mt-1 text-[10px] text-white/50 truncate">Latest activity: {item.latestActivity}</p>}
-        {item.resultText && item.status !== 'working' && (
+        {!compact && item.status === 'working' && item.latestRequest && <p className="mt-2 text-[10px] text-accent-blue line-clamp-2">Working on: {item.latestRequest}</p>}
+        {!compact && item.status === 'working' && item.latestActivity && <p className="mt-1 text-[10px] text-white/50 truncate">Latest activity: {item.latestActivity}</p>}
+        {!compact && item.resultText && item.status !== 'working' && (
           <p className="text-[10px] text-white/50 mt-1.5 line-clamp-1 leading-relaxed">
             {item.resultText.split(/[.!?\n]/)[0].slice(0, 150)}
           </p>
         )}
       </div>
-      <div className="px-4"><ConversationContext key={item.processId} item={item} /></div>
+      {!compact && <div className="px-4"><ConversationContext key={item.processId} item={item} /></div>}
       {showInput && (
         <div className="px-4 pb-2.5 flex gap-2 items-center">
           <input

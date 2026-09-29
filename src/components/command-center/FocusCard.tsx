@@ -16,10 +16,13 @@ import {
   Pause,
   AlertTriangle,
   Square,
+  Minimize2,
+  Maximize2,
 } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import MCPDialog from './MCPDialog'
 import ConversationContext from './ConversationContext'
+import { useSessionCollapse } from '../../hooks/useSessionCollapse'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
 import { CLAUDE_MODELS, EFFORT_LEVELS, modelLabel, resolveModelId } from '../../lib/models'
@@ -69,6 +72,7 @@ export interface TaskCardAdapter {
 
 export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapter?: TaskCardAdapter }) {
   const claude = useCommandCenterStore()
+  const [minimized, toggleMinimized] = useSessionCollapse(item.processId, 'card')
   const { respond } = claude
   const { dismiss, park, kill } = adapter ?? claude
   const [response, setResponse] = useState('')
@@ -456,6 +460,19 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
 
   const canSend = (response.trim() || attachments.length > 0) && !isOversized
 
+  if (minimized) return (
+    <div className="rounded-lg border border-white/[0.06] bg-surface-1 px-4 py-2.5">
+      <div className="flex items-center gap-2">
+        <Badge>{item.projectName}</Badge>
+        <span className="text-[10px] text-white/40">{item.provider === 'codex' ? 'Codex' : 'Claude'}</span>
+        <span className={`text-[10px] ${statusColor}`}>{item.stopped ? 'Paused' : statusLabel}</span>
+        {item.pendingInput && <span className="text-[9px] text-accent-blue">Messages queued</span>}
+        <button onClick={toggleMinimized} aria-label="Expand conversation" title="Expand conversation" className="ml-auto p-1 text-white/50 hover:text-white"><Maximize2 size={13} /></button>
+      </div>
+      <p className="mt-1 text-[10px] text-white/50 truncate">{item.latestRequest || item.prompt}</p>
+    </div>
+  )
+
   return (
     <div className="relative">
       {showConfetti && <ConfettiOverlay color={item.projectColor} onDone={() => setShowConfetti(false)} />}
@@ -506,6 +523,7 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
           <div className="flex items-center gap-2">
             <span className="text-[9px] text-white/30">{adapter ? adapter.usage : `$${item.costUsd.toFixed(2)}`}</span>
             <span className="text-[9px] text-white/20">{Math.round((now - item.startedAt) / 60000)}m ago</span>
+            <button onClick={toggleMinimized} aria-label="Minimize conversation" title="Minimize conversation" className="p-1 text-white/40 hover:text-white"><Minimize2 size={13} /></button>
           </div>
         </div>
 

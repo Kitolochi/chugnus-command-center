@@ -57,6 +57,7 @@ import { initCoach, destroyCoach } from './usage-coach'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let isQuitting = false
 
 /** Safely send IPC to renderer — avoids "Render frame was disposed" crash */
 function safeSend(channel: string, ...args: any[]) {
@@ -190,6 +191,7 @@ function createWindow() {
   // No auto-hide on blur -- app shows in taskbar normally
 
   mainWindow.on('close', (event) => {
+    if (isQuitting) return
     logCrash(`mainWindow close event (prevented)`)
     event.preventDefault()
     mainWindow?.hide()
@@ -375,6 +377,7 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
+  isQuitting = true
   destroyCoach()
   shutdownAllProcesses()
   shutdownCodexSessions()

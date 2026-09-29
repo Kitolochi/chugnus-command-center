@@ -1,7 +1,7 @@
 import { pasteClipboardImages, savePastedImage } from '../codex-clipboard'
 import { getCodexModelSettings, resolveCodexSelection } from '../codex-models'
 import { ipcMain, dialog, type BrowserWindow } from 'electron'
-import { controlCodexQueue, onCodexQueuedTurn, initCodexSessions, getCodexSessions, getCodexStatus, startCodexTurn, stopCodexSession, archiveCodexSession, importCodexSession, onCodexComplete } from '../codex-sessions'
+import { recoverCodexSessions, controlCodexQueue, onCodexQueuedTurn, initCodexSessions, getCodexSessions, getCodexStatus, startCodexTurn, stopCodexSession, archiveCodexSession, importCodexSession, onCodexComplete } from '../codex-sessions'
 import { upsertKnownProject, incrementDailyPrompts, getMemorySettings } from '../database'
 import { discoverCodexHistory, readCodexTranscript } from '../codex-history'
 import { extractMemoriesFromCli, getRelevantMemories } from '../memory'
@@ -12,14 +12,15 @@ export function registerCodexHandlers(window: BrowserWindow) {
   initCodexSessions(window)
   ipcMain.handle('codex:paste-images', () => pasteClipboardImages())
   ipcMain.handle('codex:save-pasted-image', (_, bytes: Uint8Array) => savePastedImage(bytes))
-  onCodexQueuedTurn(opts => {
+  onCodexQueuedTurn((opts, resumeMessageId) => {
     const previous = getCodexSessions().find(session => session.id === opts.sessionId)?.messages || []
-    return startCodexTurn(opts, getRelevantMemories(`${opts.projectPath}\n${opts.prompt}`, previous), true)
+    return startCodexTurn(opts, getRelevantMemories(`${opts.projectPath}\n${opts.prompt}`, previous), true, resumeMessageId)
   })
   ipcMain.handle('codex:queue', (_, id: string, action: 'resume' | 'remove', pendingId?: string) => controlCodexQueue(id, action, pendingId))
   onCodexComplete(async session => {
     if (getMemorySettings().autoGenerate && isLLMConfigured() && session.threadId) await extractMemoriesFromCli(`codex:${session.threadId}`, true)
   })
+  void recoverCodexSessions()
   ipcMain.handle('codex:model-settings', (_, projectPath?: string) => getCodexModelSettings(projectPath))
   ipcMain.handle('codex:status', () => getCodexStatus())
   ipcMain.handle('codex:sessions', () => getCodexSessions())

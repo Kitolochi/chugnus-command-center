@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Circle, Loader2, Pause, AlertTriangle, Terminal } from 'lucide-react'
 import type { CodexSession, CodexMessage } from '../../types/codex'
 import { renderMarkdown } from '../../utils/markdown'
+import { useSessionCollapse } from '../../hooks/useSessionCollapse'
 import { excerpt } from '../../lib/conversationContext'
 
 const labels = { starting: 'Starting', working: 'Working on this', completed: 'Turn finished', interrupted: 'Interrupted', failed: 'Failed' }
@@ -19,6 +20,8 @@ function messageState(session: CodexSession, message: CodexMessage) {
 }
 
 export default function CodexConversation({ session }: { session: CodexSession }) {
+  const [activityCollapsed, toggleActivity] = useSessionCollapse(session.id, 'activity')
+  const [messagesCollapsed, toggleMessages] = useSessionCollapse(session.id, 'messages')
   const [showAll, setShowAll] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 10000); return () => clearInterval(timer) }, [])
@@ -41,6 +44,8 @@ export default function CodexConversation({ session }: { session: CodexSession }
         </span>
         <span className="text-white/40">{session.pendingTurns?.length || 0} waiting{session.queuePaused && session.pendingTurns?.length ? ' · queue paused' : ''}</span>
       </div>
+      <button onClick={toggleActivity} aria-expanded={!activityCollapsed} className="text-[10px] text-accent-blue mb-2">{activityCollapsed ? 'Show activity' : 'Hide activity'}</button>
+      {!activityCollapsed && <>
       {current && <p className="text-xs text-white/85 whitespace-pre-wrap break-words max-h-28 overflow-y-auto">{current.content}</p>}
       {working && <p className="mt-2 text-[10px] text-white/40">{eventAge === null ? 'Waiting for the first activity update…' : `Last activity ${age} ago${eventAge >= 60 ? ' — no new output received since then' : ''}`}</p>}
       {working && latestUpdate && <p className="mt-2 text-[11px] text-white/65 leading-relaxed"><span className="text-white/35">Codex update: </span>{excerpt(latestUpdate, 400)}</p>}
@@ -55,12 +60,15 @@ export default function CodexConversation({ session }: { session: CodexSession }
           <pre className="mt-1 rounded bg-surface-0 p-2 max-h-48 overflow-auto whitespace-pre-wrap break-words select-text text-[10px]">{a.text}</pre>
         </details>)}
       </div>}
+      </>}
     </section>
     <section aria-label="Message progress" className="space-y-2">
       <div className="flex justify-between items-center text-[10px] text-white/40">
+        <button onClick={toggleMessages} aria-expanded={!messagesCollapsed} className="text-accent-blue">{messagesCollapsed ? 'Show messages' : 'Hide messages'}</button>
         <span>Your messages · {requests.length} sent</span>
         {requests.length > 4 && <button type="button" className="text-accent-blue" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show recent' : `Show all ${requests.length}`}</button>}
       </div>
+      {!messagesCollapsed && <>
       <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
         {visible.map(request => {
           const index = session.messages.indexOf(request)
@@ -85,6 +93,7 @@ export default function CodexConversation({ session }: { session: CodexSession }
         })}
       </div>
       <p className="text-[9px] text-white/30">“Turn finished” means Codex finished responding to that message. Queued messages below have not been sent yet.</p>
+      </>}
     </section>
   </div>
 }
