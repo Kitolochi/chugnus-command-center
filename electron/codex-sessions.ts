@@ -104,7 +104,7 @@ export function startCodexTurn(opts: CodexTurnOptions, memories: { title: string
   if (!opts || typeof opts.prompt !== 'string' || !opts.prompt.trim()) throw new Error('Enter a task for Codex.')
   if (!['read-only', 'workspace-write', 'danger-full-access'].includes(opts.access)) throw new Error('Invalid access mode')
   if (opts.windowsSandbox && opts.windowsSandbox !== 'unelevated') throw new Error('Invalid Windows sandbox mode')
-  if (opts.effort && !['minimal', 'low', 'medium', 'high', 'xhigh'].includes(opts.effort)) throw new Error('Invalid reasoning effort')
+  if (opts.effort && !/^[a-z][a-z0-9_-]{0,31}$/.test(opts.effort)) throw new Error('Invalid reasoning effort')
   if (running.size >= 10) throw new Error('Max concurrent Codex tasks reached (10)')
   const existing = opts.sessionId ? sessions.get(opts.sessionId) : undefined
   if (opts.sessionId && !existing) throw new Error('Session not found')
@@ -205,11 +205,12 @@ export function stopCodexSession(id: string) {
   } else proc.kill('SIGTERM')
 }
 
-export function archiveCodexSession(id: string, archived: boolean) {
+export function archiveCodexSession(id: string, archived: boolean, disposition: 'parked' | 'completed' | 'killed' = 'parked') {
   const session = sessions.get(id)
   if (!session) throw new Error('Session not found')
   if (running.has(id)) throw new Error('Stop the running task before parking it')
   session.archived = archived
+  session.disposition = archived ? disposition : undefined
   checkpoint(session)
 }
 

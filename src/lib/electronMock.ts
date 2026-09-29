@@ -465,8 +465,10 @@ export function installElectronMock() {
     onCCQueueUpdate: noopUnsub as any,
 
     // Codex Chat
+    codexModelSettings: async () => { throw new Error('Model settings require the desktop app') },
     codexStatus: async () => ({ available: false, error: 'Open the desktop app to run Codex. Browser previews cannot launch local coding sessions.' }),
     codexSessions: emptyArray,
+    codexTranscript: emptyArray,
     codexHistory: emptyArray,
     codexImport: async () => { throw new Error('Codex sessions require the desktop app') },
     codexExtractMemories: async () => { throw new Error('Memory extraction requires the desktop app') },

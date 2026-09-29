@@ -28,7 +28,7 @@ describe('Codex session lifecycle', () => {
     const proc = child()
     mocks.spawn.mockReturnValue(proc)
     api.initCodexSessions({ isDestroyed: () => false, webContents: { send: vi.fn() } } as any)
-    const opts = { projectPath: mocks.directory, prompt: 'hello', access: 'workspace-write' as const }
+    const opts = { projectPath: mocks.directory, prompt: 'hello', access: 'workspace-write' as const, model: 'catalog-model', effort: 'ultra' }
     const s = api.startCodexTurn(opts)
     proc.stdout.write('{"type":"thread.started","thread_id":"thread-123"}\n')
     const chunk = Buffer.from('{"type":"item.completed","item":{"id":"0","type":"agent_message","text":"Ready 🐇"}}\n')
@@ -75,5 +75,9 @@ describe('Codex session lifecycle', () => {
     expect(s.turns).toBe(0)
     api.archiveCodexSession(s.id, true)
     expect(s.archived).toBe(true)
+    api.archiveCodexSession(s.id, true, 'completed')
+    expect(s.disposition).toBe('completed')
+    api.archiveCodexSession(s.id, false)
+    expect(s.disposition).toBeUndefined()
   })
 })

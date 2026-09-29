@@ -37,18 +37,30 @@ function relativeTime(ts: number): string {
   return `${days}d ago`
 }
 
-export default function ProjectCard({ project }: { project: ProjectSummary }) {
+export default function ProjectCard({
+  project,
+  onSelect,
+  onLaunch,
+}: {
+  project: ProjectSummary
+  onSelect?: (path: string) => void
+  onLaunch?: (path: string) => void
+}) {
   const { selectProject, setLaunchPrefilledProject, setLaunchOpen } = useCommandCenterStore()
 
   const handleLaunch = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (onLaunch) {
+      onLaunch(project.path)
+      return
+    }
     setLaunchPrefilledProject(project.path)
     setLaunchOpen(true)
   }
 
   return (
     <div
-      onClick={() => selectProject(project.path)}
+      onClick={() => (onSelect ?? selectProject)(project.path)}
       className="bg-surface-2 hover:bg-surface-3 border-l-4 rounded-lg p-4 cursor-pointer transition-colors"
       style={{ borderLeftColor: accentHex[project.color] || accentHex.blue }}
     >

@@ -56,8 +56,19 @@ function AttachmentChip({ att, onRemove }: { att: FileAttachment; onRemove: () =
   )
 }
 
-export default function FocusCard({ item }: { item: CCQueueItem }) {
-  const { respond, dismiss, park, kill } = useCommandCenterStore()
+export interface TaskCardAdapter {
+  park: (id: string) => void
+  dismiss: (id: string) => void
+  kill: (id: string) => void
+  composer: React.ReactNode
+  details?: React.ReactNode
+  usage: string
+}
+
+export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapter?: TaskCardAdapter }) {
+  const claude = useCommandCenterStore()
+  const { respond } = claude
+  const { dismiss, park, kill } = adapter ?? claude
   const [response, setResponse] = useState('')
   const [showFiles, setShowFiles] = useState(false)
   const [showLog, setShowLog] = useState(false)
@@ -70,21 +81,6 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dragCountRef = useRef(0)
-  const prevProcessId = useRef(item.processId)
-
-  // Reset draft when the focused item changes to a different process
-  useEffect(() => {
-    if (item.processId !== prevProcessId.current) {
-      setResponse('')
-      setAttachments([])
-      setShowFiles(false)
-      setShowLog(false)
-      setLogEntries([])
-      setConfirmKill(false)
-      prevProcessId.current = item.processId
-    }
-  }, [item.processId])
-
   useEffect(() => {
     if (item.status === 'awaiting_input') inputRef.current?.focus()
   }, [item.status, item.processId])
@@ -220,7 +216,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
     }
 
     if (name === 'status') {
-      const elapsed = Math.round((Date.now() - item.startedAt) / 60000)
+      const elapsed = Math.round((now - item.startedAt) / 60000)
       showResult(
         '/status',
         `Status: ${item.status}\nProject: ${item.projectName}\nSession: ${item.sessionId || 'pending'}\nCost: $${item.costUsd.toFixed(4)}\nTurns: ${item.turnCount}\nElapsed: ${elapsed}m\nFiles: ${item.filesChanged.join(', ') || 'none'}`
@@ -414,13 +410,13 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
   }
 
   // Re-render every 30s to keep elapsed timers fresh
-  const [, setTick] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 30000)
+    const id = setInterval(() => setNow(Date.now()), 30000)
     return () => clearInterval(id)
   }, [])
 
-  const idleMinutes = Math.floor((Date.now() - item.lastActivityAt) / 60000)
+  const idleMinutes = Math.floor((now - item.lastActivityAt) / 60000)
   const isStale = item.status === 'working' && idleMinutes >= 5
 
   const statusColor = {
@@ -484,6 +480,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
             >
               {item.projectName}
             </Badge>
+            <span className="text-[9px] text-white/30">{item.provider === 'codex' ? 'Codex' : 'Claude'}</span>
             <span className={`text-[10px] ${statusColor}`}>{statusLabel}</span>
             {item.status === 'working' && !isStale && (
               <Loader2 size={10} className="text-accent-emerald animate-spin" />
@@ -505,8 +502,8 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-white/30">${item.costUsd.toFixed(2)}</span>
-            <span className="text-[9px] text-white/20">{Math.round((Date.now() - item.startedAt) / 60000)}m ago</span>
+            <span className="text-[9px] text-white/30">{adapter ? adapter.usage : `$${item.costUsd.toFixed(2)}`}</span>
+            <span className="text-[9px] text-white/20">{Math.round((now - item.startedAt) / 60000)}m ago</span>
           </div>
         </div>
 
@@ -536,7 +533,7 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
           <button
             onClick={async () => {
               if (!showLog) {
-                const log = await window.electronAPI.ccGetLog({ processId: item.processId })
+                const log = adapter ? item.fullLog : await window.electronAPI.ccGetLog({ processId: item.processId })
                 setLogEntries(log)
               }
               setShowLog(!showLog)
@@ -562,10 +559,10 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
         {/* Expanded: Log (fetched on demand) */}
         {showLog && (
           <div className="bg-surface-0 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto space-y-2">
-            {logEntries.length === 0 ? (
+            {(adapter ? item.fullLog : logEntries).length === 0 ? (
               <p className="text-[10px] text-white/30">No log entries.</p>
             ) : (
-              logEntries.map((msg, i) => (
+              (adapter ? item.fullLog : logEntries).map((msg, i) => (
                 <div
                   key={i}
                   className={`text-[10px] ${
@@ -644,87 +641,91 @@ export default function FocusCard({ item }: { item: CCQueueItem }) {
         )}
 
         {/* Response input with drag-and-drop */}
-        {(item.status === 'awaiting_input' || item.status === 'working') && (
-          <div
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className="relative"
-          >
-            {/* Drag overlay */}
-            {dragging && (
-              <div className="absolute inset-0 z-10 rounded-lg border-2 border-dashed border-accent-blue/50 bg-accent-blue/5 flex items-center justify-center pointer-events-none">
-                <div className="flex flex-col items-center gap-1">
-                  <File size={20} className="text-accent-blue/60" />
-                  <span className="text-[11px] text-accent-blue/70 font-accent">Drop files here</span>
+        {adapter
+          ? adapter.composer
+          : (item.status === 'awaiting_input' || item.status === 'working') && (
+              <div
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                className="relative"
+              >
+                {/* Drag overlay */}
+                {dragging && (
+                  <div className="absolute inset-0 z-10 rounded-lg border-2 border-dashed border-accent-blue/50 bg-accent-blue/5 flex items-center justify-center pointer-events-none">
+                    <div className="flex flex-col items-center gap-1">
+                      <File size={20} className="text-accent-blue/60" />
+                      <span className="text-[11px] text-accent-blue/70 font-accent">Drop files here</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Staged attachments */}
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {attachments.map((att, i) => (
+                      <AttachmentChip key={i} att={att} onRemove={() => removeAttachment(i)} />
+                    ))}
+                  </div>
+                )}
+
+                {loadingFiles && (
+                  <div className="flex items-center gap-2 mb-2 text-[10px] text-white/40">
+                    <Loader2 size={10} className="animate-spin" />
+                    Reading files...
+                  </div>
+                )}
+
+                {fileError && (
+                  <div className="flex items-center gap-2 mb-2 text-[10px] text-accent-red/80">
+                    <AlertTriangle size={10} className="flex-shrink-0" />
+                    {fileError}
+                  </div>
+                )}
+
+                {isOversized && (
+                  <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-red/5 border border-accent-red/15">
+                    <AlertTriangle size={10} className="text-accent-red flex-shrink-0" />
+                    <span className="text-[10px] text-accent-red/80">
+                      Message too large ({(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB) — remove files or use
+                      smaller ones (max 5MB)
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-[9px] text-white/25">Replying to</span>
+                  <span className="text-[9px] text-white/50 font-accent">{item.projectName}</span>
+                </div>
+                <div className="flex gap-2 items-end">
+                  <textarea
+                    ref={inputRef}
+                    value={response}
+                    onChange={(e) => setResponse(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend()
+                      }
+                    }}
+                    onPaste={handlePaste}
+                    placeholder={
+                      attachments.length > 0
+                        ? 'Add a message (optional)...'
+                        : 'Type prompt, /help, !shell, or drop files...'
+                    }
+                    className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
+                    rows={1}
+                  />
+                  <Button variant="primary" size="sm" onClick={handleSend} disabled={!canSend}>
+                    <Send size={12} />
+                  </Button>
                 </div>
               </div>
             )}
 
-            {/* Staged attachments */}
-            {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {attachments.map((att, i) => (
-                  <AttachmentChip key={i} att={att} onRemove={() => removeAttachment(i)} />
-                ))}
-              </div>
-            )}
-
-            {loadingFiles && (
-              <div className="flex items-center gap-2 mb-2 text-[10px] text-white/40">
-                <Loader2 size={10} className="animate-spin" />
-                Reading files...
-              </div>
-            )}
-
-            {fileError && (
-              <div className="flex items-center gap-2 mb-2 text-[10px] text-accent-red/80">
-                <AlertTriangle size={10} className="flex-shrink-0" />
-                {fileError}
-              </div>
-            )}
-
-            {isOversized && (
-              <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-red/5 border border-accent-red/15">
-                <AlertTriangle size={10} className="text-accent-red flex-shrink-0" />
-                <span className="text-[10px] text-accent-red/80">
-                  Message too large ({(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB) — remove files or use smaller
-                  ones (max 5MB)
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-[9px] text-white/25">Replying to</span>
-              <span className="text-[9px] text-white/50 font-accent">{item.projectName}</span>
-            </div>
-            <div className="flex gap-2 items-end">
-              <textarea
-                ref={inputRef}
-                value={response}
-                onChange={(e) => setResponse(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSend()
-                  }
-                }}
-                onPaste={handlePaste}
-                placeholder={
-                  attachments.length > 0
-                    ? 'Add a message (optional)...'
-                    : 'Type prompt, /help, !shell, or drop files...'
-                }
-                className="flex-1 bg-surface-0 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40 resize-none min-h-[36px] max-h-[120px]"
-                rows={1}
-              />
-              <Button variant="primary" size="sm" onClick={handleSend} disabled={!canSend}>
-                <Send size={12} />
-              </Button>
-            </div>
-          </div>
-        )}
+        {adapter?.details}
 
         {/* Action bar */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">

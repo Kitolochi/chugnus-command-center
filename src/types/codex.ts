@@ -29,6 +29,7 @@ export interface CodexSession {
   windowsSandbox?: 'unelevated'
   status: 'working' | 'ready' | 'error' | 'stopped'
   archived: boolean
+  disposition?: 'parked' | 'completed' | 'killed'
   imported?: boolean
   messages: { role: 'user' | 'assistant'; content: string; id: string }[]
   activity: CodexActivity[]
@@ -57,4 +58,18 @@ export interface CodexHistoryEntry {
   updatedAt: number
   filePath: string
   size: number
+}
+
+export interface CodexModel {
+  model: string
+  displayName: string
+  description: string
+  defaultEffort?: string
+  efforts: { value: string; description: string }[]
+}
+
+export interface CodexModelSettings {
+  models: CodexModel[]
+  defaultModel: string
+  defaultEffort?: string
 }

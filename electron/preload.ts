@@ -211,14 +211,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Native Codex coding sessions
+  codexModelSettings: (projectPath?: string) => ipcRenderer.invoke('codex:model-settings', projectPath),
   codexStatus: () => ipcRenderer.invoke('codex:status'),
   codexSessions: () => ipcRenderer.invoke('codex:sessions'),
+  codexTranscript: (threadId: string) => ipcRenderer.invoke('codex:transcript', threadId),
   codexHistory: () => ipcRenderer.invoke('codex:history'),
   codexImport: (threadId: string) => ipcRenderer.invoke('codex:import', threadId),
   codexExtractMemories: (threadId: string) => ipcRenderer.invoke('codex:extract-memories', threadId),
   codexTurn: (opts: import('../src/types/codex').CodexTurnOptions) => ipcRenderer.invoke('codex:turn', opts),
   codexStop: (id: string) => ipcRenderer.invoke('codex:stop', id),
-  codexArchive: (id: string, archived: boolean) => ipcRenderer.invoke('codex:archive', id, archived),
+  codexArchive: (id: string, archived: boolean, disposition?: 'parked' | 'completed' | 'killed') => ipcRenderer.invoke('codex:archive', id, archived, disposition),
   codexPickFiles: () => ipcRenderer.invoke('codex:pick-files'),
   onCodexSessionUpdate: (callback: (session: import('../src/types/codex').CodexSession) => void) => {
     const handler = (_: unknown, session: import('../src/types/codex').CodexSession) => callback(session)

@@ -21,6 +21,7 @@ export interface CCQueueItem {
   lastActivityAt: number
   model?: string
   effort?: string
+  provider?: 'codex' | 'claude'
 }
 
 export interface CCStreamMessage {

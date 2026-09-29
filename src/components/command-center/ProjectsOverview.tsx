@@ -15,14 +15,14 @@ function deriveProjects(queue: CCQueueItem[]): ProjectSummary[] {
 
   const summaries: ProjectSummary[] = []
   for (const [path, items] of groups) {
-    const latest = items.reduce((a, b) => a.lastActivityAt > b.lastActivityAt ? a : b)
+    const latest = items.reduce((a, b) => (a.lastActivityAt > b.lastActivityAt ? a : b))
     summaries.push({
       path,
       name: items[0].projectName,
       color: items[0].projectColor,
-      workingCount: items.filter(i => i.status === 'working').length,
-      awaitingCount: items.filter(i => i.status === 'awaiting_input').length,
-      erroredCount: items.filter(i => i.status === 'errored').length,
+      workingCount: items.filter((i) => i.status === 'working').length,
+      awaitingCount: items.filter((i) => i.status === 'awaiting_input').length,
+      erroredCount: items.filter((i) => i.status === 'errored').length,
       lastPrompt: latest.prompt,
       lastActivity: latest.lastActivityAt,
     })
@@ -40,9 +40,17 @@ function deriveProjects(queue: CCQueueItem[]): ProjectSummary[] {
   return summaries
 }
 
-export default function ProjectsOverview() {
+export default function ProjectsOverview({
+  items,
+  onSelect,
+  onLaunch,
+}: {
+  items?: CCQueueItem[]
+  onSelect?: (path: string) => void
+  onLaunch?: (path?: string) => void
+}) {
   const { queue, setLaunchOpen } = useCommandCenterStore()
-  const projects = deriveProjects(queue)
+  const projects = deriveProjects(items ?? queue)
 
   if (projects.length === 0) {
     return (
@@ -50,15 +58,15 @@ export default function ProjectsOverview() {
         icon={<Layers size={20} className="text-white/30" />}
         title="No active projects"
         description="Launch a task to get started."
-        action={{ label: 'New Task', onClick: () => setLaunchOpen(true) }}
+        action={{ label: 'New Task', onClick: () => (onLaunch ? onLaunch() : setLaunchOpen(true)) }}
       />
     )
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {projects.map(p => (
-        <ProjectCard key={p.path} project={p} />
+      {projects.map((p) => (
+        <ProjectCard key={p.path} project={p} onSelect={onSelect} onLaunch={onLaunch} />
       ))}
     </div>
   )

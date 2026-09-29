@@ -779,14 +779,16 @@ export interface ElectronAPI {
   onCCQueueUpdate: (callback: (queue: any[]) => void) => () => void
 
   // Native Codex coding sessions
+  codexModelSettings: (projectPath?: string) => Promise<import('./codex').CodexModelSettings>
   codexStatus: () => Promise<import('./codex').CodexStatus>
   codexSessions: () => Promise<import('./codex').CodexSession[]>
+  codexTranscript: (threadId: string) => Promise<import('./codex').CodexSession['messages']>
   codexHistory: () => Promise<import('./codex').CodexHistoryEntry[]>
   codexImport: (threadId: string) => Promise<import('./codex').CodexSession>
   codexExtractMemories: (threadId: string) => Promise<Memory[]>
   codexTurn: (opts: import('./codex').CodexTurnOptions) => Promise<import('./codex').CodexSession>
   codexStop: (id: string) => Promise<void>
-  codexArchive: (id: string, archived: boolean) => Promise<void>
+  codexArchive: (id: string, archived: boolean, disposition?: 'parked' | 'completed' | 'killed') => Promise<void>
   codexPickFiles: () => Promise<string[]>
   onCodexSessionUpdate: (callback: (session: import('./codex').CodexSession) => void) => () => void
   codexReadTree: (opts: { projectPath: string }) => Promise<string>
