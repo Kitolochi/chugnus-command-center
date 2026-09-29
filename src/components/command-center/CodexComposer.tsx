@@ -219,9 +219,9 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
               </button>
             )}
           </div>
-          {session.pendingTurns.map((pending) => (
+          {session.pendingTurns.map((pending, index) => (
             <div key={pending.id} className="flex items-start justify-between gap-2 text-[11px] text-white/60">
-              <span className="whitespace-pre-wrap break-words min-w-0">{pending.options.prompt}</span>
+              <div className="min-w-0"><span className="text-[9px] text-accent-blue">{index === 0 ? 'Next' : `Waiting ${index + 1}`} · Queued — not sent yet</span><p className="whitespace-pre-wrap break-words">{pending.options.prompt}</p></div>
               <button
                 aria-label={`Remove queued message: ${pending.options.prompt}`}
                 onClick={async () => {

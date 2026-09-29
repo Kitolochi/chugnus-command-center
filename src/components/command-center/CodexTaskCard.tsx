@@ -4,6 +4,7 @@ import type { CodexSession } from '../../types/codex'
 import FocusCard from './FocusCard'
 import CodexComposer from './CodexComposer'
 import CodexMemory from './CodexMemory'
+import CodexConversation from './CodexConversation'
 
 export default function CodexTaskCard({ session }: { session: CodexSession }) {
   const archive = useCodexStore((s) => s.archive)
@@ -22,6 +23,7 @@ export default function CodexTaskCard({ session }: { session: CodexSession }) {
         },
         usage: `${(session.tokensIn + session.tokensOut).toLocaleString()} tokens`,
         composer: <CodexComposer key={session.id} session={session} />,
+        conversation: <CodexConversation key={session.id} session={session} />,
         details: (
           <details className="mt-3 text-[10px] text-white/40">
             <summary className="cursor-pointer">Session details & memory</summary>

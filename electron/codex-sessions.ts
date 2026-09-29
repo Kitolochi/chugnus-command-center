@@ -69,6 +69,9 @@ export function initCodexSessions(win: BrowserWindow) {
     for (const session of saved) {
       if (!session.id || !Array.isArray(session.messages) || !Array.isArray(session.activity)) throw new Error('Invalid session record')
       session.resources = mergeResources(session.resources || [], ...session.messages.map(m => extractResources(m.content)), ...session.activity.map(a => extractResources(a.text, 'tool')))
+      for (const message of session.messages) {
+        if (message.state === 'starting' || message.state === 'working') message.state = 'interrupted'
+      }
       if (session.status === 'working') {
         session.status = 'stopped'
         session.error = 'The app closed during this turn. Send a follow-up to resume.'
@@ -152,12 +155,16 @@ export function startCodexTurn(opts: CodexTurnOptions, memories: { title: string
   session.activity = []
   const turnId = crypto.randomUUID()
   const prompt = opts.prompt + (attachments.length ? `\n\nAttached local files:\n${attachments.join('\n')}` : '')
-  session.messages.push({ role: 'user', content: prompt, id: `${turnId}-user` })
+  const request: CodexSession['messages'][number] = { role: 'user', content: prompt, id: `${turnId}-user`, state: 'starting', submittedAt: Date.now() }
+  session.activeMessageId = request.id
+  session.lastEventAt = undefined
+  session.messages.push(request)
   session.resources = mergeResources(session.resources || [], extractResources(opts.prompt), attachments.map(value => ({ kind: 'file', value, evidence: 'attached' })))
   sessions.set(session.id, session)
   // Persist before launching, so even startup/renderer failures retain the task.
   try { persist() } catch (error) {
     session.status = 'error'
+    request.state = 'failed'
     session.error = String(error)
     publish(session)
     throw error
@@ -172,7 +179,7 @@ export function startCodexTurn(opts: CodexTurnOptions, memories: { title: string
     try { event = JSON.parse(line) } catch { return }
     applyCodexEvent(session, event, turnId)
     if (event.type === 'turn.completed') completed = true
-    if (event.type === 'thread.started') checkpoint(session)
+    if (['thread.started', 'turn.started', 'turn.completed', 'turn.failed'].includes(event.type)) checkpoint(session)
     else publish(session)
   }
   proc.stdout?.on('data', (chunk: Buffer) => {
@@ -185,6 +192,8 @@ export function startCodexTurn(opts: CodexTurnOptions, memories: { title: string
   proc.stdin?.on('error', error => { stderr = error.message })
   proc.on('error', error => {
     session.status = 'error'
+    request.state = 'failed'
+    request.finishedAt = Date.now()
     session.error = `Could not launch Codex: ${error.message}`
     checkpoint(session)
   })
@@ -197,6 +206,10 @@ export function startCodexTurn(opts: CodexTurnOptions, memories: { title: string
       if (session.status === 'error') session.error = stderr.trim() || `Codex exited (${code}) before completing the turn.`
     }
     if (session.status !== 'ready' && session.pendingTurns?.length) session.queuePaused = true
+    if (request.state !== 'completed') {
+      request.state = session.status === 'stopped' ? 'interrupted' : session.status === 'ready' ? 'completed' : 'failed'
+      request.finishedAt = Date.now()
+    }
     checkpoint(session)
     if (session.status === 'ready' && onComplete) {
       void onComplete(session).catch(error => { session.memoryError = String(error); checkpoint(session) })
@@ -216,6 +229,8 @@ function runNextQueuedTurn(session: CodexSession) {
   try {
     if (startQueuedTurn) startQueuedTurn(next.options)
     else startCodexTurn(next.options, [], true)
+    const request = session.messages.find(m => m.id === session.activeMessageId)
+    if (request) { request.queuedId = next.id; checkpoint(session) }
   } catch (error) {
     session.pendingTurns!.unshift(next)
     session.queuePaused = true

@@ -41,15 +41,23 @@ export function buildCodexArgs(opts: CodexTurnOptions, threadId?: string): strin
 }
 
 export function applyCodexEvent(session: CodexSession, event: any, turnId: string): void {
+  session.lastEventAt = Date.now()
+  const request = session.messages.find(m => m.id === `${turnId}-user`)
+  if (request && (event.type === 'turn.started' || event.type?.startsWith('item.')) && request.state === 'starting') {
+    request.state = 'working'
+    request.startedAt = Date.now()
+  }
   if (event.type === 'thread.started') session.threadId = event.thread_id
   if (event.type === 'turn.completed') {
     session.tokensIn += event.usage?.input_tokens || 0
     session.tokensOut += event.usage?.output_tokens || 0
     session.turns++
+    if (request) { request.state = 'completed'; request.finishedAt = Date.now() }
   }
   if (event.type === 'turn.failed') {
     session.status = 'error'
     session.error = event.error?.message || 'Codex turn failed'
+    if (request) { request.state = 'failed'; request.finishedAt = Date.now() }
   }
   // Transient reconnect errors are activity; a later successful turn can recover.
   if (event.type === 'error') {
@@ -70,7 +78,7 @@ export function applyCodexEvent(session: CodexSession, event: any, turnId: strin
     const text = item.command
       ? `${item.command}\n${item.aggregated_output || ''}`
       : item.text || item.query || (item.type === 'mcp_tool_call' ? `${item.server}: ${item.tool}\n${JSON.stringify(item.arguments || {})}` : JSON.stringify(item.changes || item.items || item))
-    const activity = { id, kind: item.type, text: text.slice(0, 16000), status: item.status }
+    const activity = { id, kind: item.type, text: text.slice(0, 16000), status: item.status || (event.type === 'item.completed' ? 'completed' : 'in_progress'), updatedAt: Date.now() }
     const index = session.activity.findIndex(a => a.id === id)
     if (index < 0) session.activity.push(activity)
     else session.activity[index] = activity

@@ -107,7 +107,9 @@ export default function CollapsedCard({
             </span>
           </div>
         </div>
-        {item.resultText && (
+        {item.status === 'working' && item.latestRequest && <p className="mt-2 text-[10px] text-accent-blue line-clamp-2">Working on: {item.latestRequest}</p>}
+        {item.status === 'working' && item.latestActivity && <p className="mt-1 text-[10px] text-white/50 truncate">Latest activity: {item.latestActivity}</p>}
+        {item.resultText && item.status !== 'working' && (
           <p className="text-[10px] text-white/50 mt-1.5 line-clamp-1 leading-relaxed">
             {item.resultText.split(/[.!?\n]/)[0].slice(0, 150)}
           </p>

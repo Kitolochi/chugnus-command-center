@@ -18,6 +18,18 @@ export interface CodexActivity {
   kind: string
   text: string
   status?: string
+  updatedAt?: number
+}
+
+export interface CodexMessage {
+  role: 'user' | 'assistant'
+  content: string
+  id: string
+  state?: 'starting' | 'working' | 'completed' | 'interrupted' | 'failed'
+  queuedId?: string
+  submittedAt?: number
+  startedAt?: number
+  finishedAt?: number
 }
 
 export interface CodexSession {
@@ -35,7 +47,9 @@ export interface CodexSession {
   imported?: boolean
   pendingTurns?: { id: string; options: CodexTurnOptions }[]
   queuePaused?: boolean
-  messages: { role: 'user' | 'assistant'; content: string; id: string }[]
+  messages: CodexMessage[]
+  activeMessageId?: string
+  lastEventAt?: number
   activity: CodexActivity[]
   filesChanged: string[]
   resources?: ConversationResource[]

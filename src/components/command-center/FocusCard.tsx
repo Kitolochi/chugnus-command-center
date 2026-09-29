@@ -62,6 +62,7 @@ export interface TaskCardAdapter {
   dismiss: (id: string) => void
   kill: (id: string) => void
   composer: React.ReactNode
+  conversation?: React.ReactNode
   details?: React.ReactNode
   usage: string
 }
@@ -511,11 +512,11 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
         <ConversationContext key={item.processId} item={item} />
 
         {/* Result text */}
-        <div
+        {adapter?.conversation || <div
           className="text-[12px] text-white/80 mb-3 leading-relaxed select-text cursor-text"
           onClick={handleLinkClick}
           dangerouslySetInnerHTML={{ __html: renderMarkdown(showFullText ? displayText : shownText) }}
-        />
+        />}
         {truncated && !showFullText && (
           <button onClick={() => setShowFullText(true)} className="text-accent-blue text-[10px] mb-3">
             Show more
