@@ -16,3 +16,4 @@ python/__pycache__/
 
 # Local Codex integration verification artifacts
 .codex-check/
+release-next/

@@ -13,6 +13,7 @@ export function codexQueueItem(session: CodexSession): CCQueueItem {
     status: session.status === 'working' ? 'working' : session.status === 'error' ? 'errored' : 'awaiting_input',
     resultText: [...session.messages].reverse().find((m) => m.role === 'assistant')?.content,
     errorMessage: session.error,
+    pendingInput: session.pendingTurns?.map((item) => item.options.prompt).join('\n'),
     filesChanged: session.filesChanged,
     fullLog: [
       ...session.messages.map((m) => ({ type: m.role, text: m.content, timestamp: session.updatedAt })),

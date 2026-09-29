@@ -3,6 +3,8 @@ import { useCommandCenterStore } from './commandCenterStore'
 import type { CodexSession, CodexStatus, CodexTurnOptions } from '../types/codex'
 
 interface CodexState {
+  drafts: Record<string, { input: string; files: string[] }>
+  setDraft: (id: string, draft: { input: string; files: string[] }) => void
   sessions: CodexSession[]
   selectedId: string | null
   history: boolean
@@ -22,6 +24,8 @@ interface CodexState {
 }
 
 export const useCodexStore = create<CodexState>((set, get) => ({
+  drafts: {},
+  setDraft: (id, draft) => set((state) => ({ drafts: { ...state.drafts, [id]: draft } })),
   sessions: [],
   selectedProject: null,
   launchOpen: false,

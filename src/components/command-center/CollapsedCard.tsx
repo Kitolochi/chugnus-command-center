@@ -59,11 +59,12 @@ export default function CollapsedCard({
             <span className="text-[10px] text-white/40 truncate max-w-[200px]">{item.prompt.slice(0, 60)}</span>
           </div>
           <div className="flex items-center gap-2">
-            {item.status !== 'errored' && !(actions && item.status === 'working') && (
+            {(actions || item.status !== 'errored') && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  setShowInput(!showInput)
+                  if (actions) onFocus?.()
+                  else setShowInput(!showInput)
                 }}
                 className="p-1 rounded text-white/20 hover:text-accent-blue hover:bg-white/[0.04] transition-colors"
                 title="Send input"

@@ -31,6 +31,8 @@ export interface CodexSession {
   archived: boolean
   disposition?: 'parked' | 'completed' | 'killed'
   imported?: boolean
+  pendingTurns?: { id: string; options: CodexTurnOptions }[]
+  queuePaused?: boolean
   messages: { role: 'user' | 'assistant'; content: string; id: string }[]
   activity: CodexActivity[]
   filesChanged: string[]

@@ -632,7 +632,7 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
         )}
 
         {/* Pending input indicator */}
-        {item.pendingInput && item.status === 'working' && !isStale && (
+        {!adapter && item.pendingInput && item.status === 'working' && !isStale && (
           <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-accent-blue/5 border border-accent-blue/10">
             <Loader2 size={10} className="text-accent-blue animate-spin flex-shrink-0" />
             <span className="text-[10px] text-accent-blue/70">Queued — will run after current turn:</span>

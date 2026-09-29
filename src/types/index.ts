@@ -787,6 +787,9 @@ export interface ElectronAPI {
   codexImport: (threadId: string) => Promise<import('./codex').CodexSession>
   codexExtractMemories: (threadId: string) => Promise<Memory[]>
   codexTurn: (opts: import('./codex').CodexTurnOptions) => Promise<import('./codex').CodexSession>
+  codexPasteImages: () => Promise<string[]>
+  codexSavePastedImage: (bytes: Uint8Array) => Promise<string>
+  codexQueue: (id: string, action: 'resume' | 'remove', pendingId?: string) => Promise<import('./codex').CodexSession>
   codexStop: (id: string) => Promise<void>
   codexArchive: (id: string, archived: boolean, disposition?: 'parked' | 'completed' | 'killed') => Promise<void>
   codexPickFiles: () => Promise<string[]>

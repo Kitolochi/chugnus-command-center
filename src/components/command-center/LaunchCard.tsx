@@ -1,3 +1,5 @@
+import { useCodexImagePaste } from '../../hooks/useCodexImagePaste'
+import CodexAttachments from './CodexAttachments'
 import { useState, useEffect, useCallback } from 'react'
 import { CodexModelSelect, CodexEffortSelect } from './CodexModelControls'
 import { useCodexModelSelection, effortForModel } from '../../hooks/useCodexModelSelection'
@@ -21,6 +23,11 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
   const [access, setAccess] = useState<CodexAccess>('workspace-write')
   const [compatibility, setCompatibility] = useState(localStorage.getItem('codex-windows-compatibility') === 'true')
   const [error, setError] = useState('')
+  const [attachments, setAttachments] = useState<string[]>([])
+  const imagePaste = useCodexImagePaste(
+    (files) => setAttachments((current) => [...new Set([...current, ...files])]),
+    setError
+  )
   const [launching, setLaunching] = useState(false)
   const { projects, launch, setLaunchOpen, loadProjects, launchPrefilledProject, setLaunchPrefilledProject } =
     useCommandCenterStore()
@@ -94,11 +101,19 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
   }
 
   const handleLaunch = async () => {
-    if (!projectPath || !prompt.trim() || launching || (isCodex && !selection.valid)) return
+    if (
+      !projectPath ||
+      (!prompt.trim() && !(isCodex && attachments.length)) ||
+      imagePaste.pasting ||
+      launching ||
+      (isCodex && !selection.valid)
+    )
+      return
     if (isCodex) {
       await codex.send({
         projectPath,
-        prompt: prompt.trim(),
+        prompt: prompt.trim() || 'Describe the attached image.',
+        attachments,
         model: selection.selectedModel,
         effort: selection.selectedEffort,
         access,
@@ -120,7 +135,13 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
     }
   }
 
-  const canLaunch = projectPath && prompt.trim() && !launching && !codex.sending && (!isCodex || selection.valid)
+  const canLaunch =
+    projectPath &&
+    (prompt.trim() || (isCodex && attachments.length)) &&
+    !imagePaste.pasting &&
+    !launching &&
+    !codex.sending &&
+    (!isCodex || selection.valid)
 
   const inputClass =
     'w-full bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40'
@@ -207,6 +228,7 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
         <div className="mb-4">
           <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Prompt</label>
           <textarea
+            onPaste={isCodex ? imagePaste.onPaste : undefined}
             value={prompt}
             onChange={(e) => {
               setPrompt(e.target.value)
@@ -218,6 +240,19 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
           />
         </div>
 
+        {isCodex && imagePaste.pasting && (
+          <p role="status" className="text-[10px] text-white/40 mb-2">
+            Attaching image...
+          </p>
+        )}
+        {isCodex && attachments.length > 0 && (
+          <div className="mb-4">
+            <CodexAttachments
+              files={attachments}
+              onRemove={(file) => setAttachments((current) => current.filter((item) => item !== file))}
+            />
+          </div>
+        )}
         {/* Model + Effort + Budget row */}
         <div className="flex gap-3 mb-6">
           <div className="flex-1 min-w-0">

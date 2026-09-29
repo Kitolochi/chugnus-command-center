@@ -286,10 +286,15 @@ export default function CommandCenter() {
                   <div className="space-y-2">
                     {focusItem &&
                       (codex.sessions.some((s) => s.id === focusItem.processId) ? (
-                        <CodexTaskCard
+                        <div
                           key={focusItem.processId}
-                          session={codex.sessions.find((s) => s.id === focusItem.processId)!}
-                        />
+                          onFocusCapture={() => {
+                            setFocusId(focusItem.processId)
+                            setPin({ id: focusItem.processId, status: 'typing' })
+                          }}
+                        >
+                          <CodexTaskCard session={codex.sessions.find((s) => s.id === focusItem.processId)!} />
+                        </div>
                       ) : (
                         <FocusCard key={focusItem.processId} item={focusItem} />
                       ))}

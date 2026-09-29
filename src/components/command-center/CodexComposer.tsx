@@ -1,7 +1,9 @@
+import { useCodexImagePaste } from '../../hooks/useCodexImagePaste'
+import CodexAttachments from './CodexAttachments'
 import { CodexModelSelect, CodexEffortSelect } from './CodexModelControls'
 import { useCodexModelSelection, effortForModel } from '../../hooks/useCodexModelSelection'
 import { Button } from '../ui'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { FolderOpen, Paperclip, Send, Square, X } from 'lucide-react'
 import { useCommandCenterStore } from '../../store/commandCenterStore'
 import { useCodexStore } from '../../store/codexStore'
@@ -21,11 +23,30 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
   const [compatibility, setCompatibility] = useState(
     session?.windowsSandbox === 'unelevated' || localStorage.getItem('codex-windows-compatibility') === 'true'
   )
-  const [input, setInput] = useState('')
-  const [files, setFiles] = useState<string[]>([])
+  const draftId = session?.id || 'new'
+  const draft = useCodexStore((state) => state.drafts[draftId])
+  const input = draft?.input || ''
+  const files = draft?.files || []
+  const submitting = useRef(false)
+  const setInput = (value: string | ((previous: string) => string)) => {
+    const current = useCodexStore.getState().drafts[draftId] || { input: '', files: [] }
+    useCodexStore
+      .getState()
+      .setDraft(draftId, { ...current, input: typeof value === 'function' ? value(current.input) : value })
+  }
+  const setFiles = (value: string[] | ((previous: string[]) => string[])) => {
+    const current = useCodexStore.getState().drafts[draftId] || { input: '', files: [] }
+    useCodexStore
+      .getState()
+      .setDraft(draftId, { ...current, files: typeof value === 'function' ? value(current.files) : value })
+  }
   const [error, setError] = useState('')
+  const imagePaste = useCodexImagePaste(
+    (pasted) => setFiles((current) => [...new Set([...current, ...pasted])]),
+    setError
+  )
   const working = session?.status === 'working'
-  const locked = working || sending
+  const locked = sending
 
   const browse = async () => {
     try {
@@ -47,10 +68,23 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
     }
   }
   const submit = async () => {
-    if (locked || !projectPath || !input.trim() || !selection.valid) return
+    if (
+      submitting.current ||
+      locked ||
+      !projectPath ||
+      (!input.trim() && !files.length) ||
+      imagePaste.pasting ||
+      !selection.valid
+    )
+      return
+    submitting.current = true
+    const submittedInput = input
+    const submittedFiles = files
+    setInput('')
+    setFiles([])
     const ok = await send({
       projectPath,
-      prompt: input.trim(),
+      prompt: input.trim() || 'Describe the attached image.',
       model: selection.selectedModel,
       effort: selection.selectedEffort,
       access,
@@ -58,10 +92,11 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
       sessionId: session?.id,
       attachments: files,
     })
-    if (ok) {
-      setInput('')
-      setFiles([])
-      setError('')
+    submitting.current = false
+    if (ok) setError('')
+    else {
+      setInput((current) => [submittedInput, current].filter(Boolean).join('\n'))
+      setFiles((current) => [...new Set([...submittedFiles, ...current])])
     }
   }
 
@@ -71,7 +106,6 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
-        if (locked) return
         const paths = Array.from(e.dataTransfer.files)
           .map((file) => (file as File & { path?: string }).path)
           .filter((p): p is string => !!p)
@@ -160,6 +194,53 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
           className={fieldClass}
         />
       </div>
+      {!!session?.pendingTurns?.length && (
+        <div
+          className="rounded-lg border border-accent-blue/15 bg-accent-blue/5 px-3 py-2 space-y-2"
+          aria-label="Queued messages"
+        >
+          <div className="flex items-center justify-between text-[10px] text-accent-blue">
+            <span>
+              {session.pendingTurns.length} queued{' '}
+              {session.queuePaused ? '- paused' : '- will run after the current turn'}
+            </span>
+            {session.queuePaused && (
+              <button
+                onClick={async () => {
+                  try {
+                    useCodexStore.getState().update(await window.electronAPI.codexQueue(session.id, 'resume'))
+                  } catch (err) {
+                    setError(String(err))
+                  }
+                }}
+                className="underline"
+              >
+                Resume queued messages
+              </button>
+            )}
+          </div>
+          {session.pendingTurns.map((pending) => (
+            <div key={pending.id} className="flex items-start justify-between gap-2 text-[11px] text-white/60">
+              <span className="whitespace-pre-wrap break-words min-w-0">{pending.options.prompt}</span>
+              <button
+                aria-label={`Remove queued message: ${pending.options.prompt}`}
+                onClick={async () => {
+                  try {
+                    useCodexStore
+                      .getState()
+                      .update(await window.electronAPI.codexQueue(session.id, 'remove', pending.id))
+                  } catch (err) {
+                    setError(String(err))
+                  }
+                }}
+                className="shrink-0 text-white/30 hover:text-accent-red"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {selection.error && (
         <p role="alert" className="text-xs text-accent-red">
           {selection.error}{' '}
@@ -168,25 +249,16 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
           </button>
         </p>
       )}
+      {imagePaste.pasting && (
+        <p role="status" className="text-[10px] text-white/40">
+          Attaching image...
+        </p>
+      )}
       {files.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {files.map((file) => (
-            <span
-              key={file}
-              title={file}
-              className="flex items-center gap-1 px-2 py-1 bg-surface-3 rounded text-[10px] text-white/60"
-            >
-              {file.split(/[/\\]/).pop()}
-              <button
-                aria-label={`Remove ${file}`}
-                disabled={locked}
-                onClick={() => setFiles((prev) => prev.filter((p) => p !== file))}
-              >
-                <X size={10} />
-              </button>
-            </span>
-          ))}
-        </div>
+        <CodexAttachments
+          files={files}
+          onRemove={(file) => setFiles((current) => current.filter((item) => item !== file))}
+        />
       )}
       {error && (
         <p role="alert" className="text-xs text-accent-red">
@@ -202,24 +274,17 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
           title="Attach files or images"
           aria-label="Attach files or images"
           onClick={attach}
-          disabled={locked}
           className={`${fieldClass} p-2`}
         >
           <Paperclip size={14} />
         </button>
         <textarea
           aria-label="Message Codex"
+          onPaste={imagePaste.onPaste}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={1}
-          disabled={locked}
-          placeholder={
-            working
-              ? 'Codex is working… Stop to interrupt.'
-              : session
-                ? 'Continue this session…'
-                : 'Describe what you want Codex to build or fix…'
-          }
+          placeholder={working ? 'Type or paste a follow-up while Codex works...' : 'Type or paste a message...'}
           className={`${fieldClass} flex-1 bg-surface-0 resize-none min-h-[36px] max-h-[120px]`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -228,27 +293,30 @@ export default function CodexComposer({ session }: { session?: CodexSession }) {
             }
           }}
         />
-        {working && session ? (
+        {working && session && (
           <button
             onClick={() => stop(session.id)}
             className="px-3 py-2 rounded-lg bg-accent-red/15 text-accent-red text-xs flex items-center gap-1"
           >
             <Square size={12} /> Stop
           </button>
-        ) : (
-          <Button
-            aria-label="Send to Codex"
-            variant="primary"
-            size="sm"
-            onClick={submit}
-            disabled={locked || !projectPath || !input.trim() || !selection.valid}
-          >
-            <Send size={12} />
-          </Button>
         )}
+        <Button
+          aria-label="Send to Codex"
+          title={working ? 'Queue message after the current turn' : 'Send to Codex'}
+          variant="primary"
+          size="sm"
+          onClick={submit}
+          disabled={
+            locked || !projectPath || (!input.trim() && !files.length) || imagePaste.pasting || !selection.valid
+          }
+        >
+          <Send size={12} />
+        </Button>
       </div>
       <p className="text-[9px] text-white/30">
-        Model and effort apply to your next reply. Enter to send · Shift+Enter for a new line · Drop files to attach
+        You can type while Codex works. Sent follow-ups run in order. Enter to send · Shift+Enter for a new line · Drop
+        files to attach, or paste an image
       </p>
     </div>
   )

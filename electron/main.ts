@@ -151,6 +151,23 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  // Native clipboard actions for task inputs (Electron has no default right-click menu).
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const owner = mainWindow
+    if (!owner || (!params.isEditable && !params.selectionText)) return
+    const menu = params.isEditable ? Menu.buildFromTemplate([
+      { role: 'undo', enabled: params.editFlags.canUndo },
+      { role: 'redo', enabled: params.editFlags.canRedo },
+      { type: 'separator' },
+      { role: 'cut', enabled: params.editFlags.canCut },
+      { role: 'copy', enabled: params.editFlags.canCopy },
+      { role: 'paste', enabled: params.editFlags.canPaste },
+      { type: 'separator' },
+      { role: 'selectAll', enabled: params.editFlags.canSelectAll },
+    ]) : Menu.buildFromTemplate([{ role: 'copy', enabled: params.editFlags.canCopy }])
+    menu.popup({ window: owner })
+  })
+
   // Diagnostic listeners — surface renderer crashes, load failures, console output
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     logCrash(`RENDERER GONE: reason=${details.reason} exitCode=${details.exitCode}`)
