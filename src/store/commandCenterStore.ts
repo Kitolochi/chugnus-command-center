@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import type { CollabSession } from '../types'
+import type { ConversationContext } from '../lib/conversationContext'
 
-export interface CCQueueItem {
+export interface CCQueueItem extends ConversationContext {
   processId: string
   sessionId?: string
   projectPath: string

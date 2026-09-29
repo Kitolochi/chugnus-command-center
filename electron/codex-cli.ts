@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { CodexSession, CodexTurnOptions } from '../src/types/codex'
+import { extractResources, mergeResources, toolResources } from '../src/lib/conversationContext'
 
 // Resolve native executables directly: spawning npm .cmd wrappers requires a shell on Windows.
 export function resolveCodexBinary(): string {
@@ -56,6 +57,9 @@ export function applyCodexEvent(session: CodexSession, event: any, turnId: strin
   }
   const item = event.item
   if (!item) return
+  session.resources = mergeResources(session.resources || [], item.type === 'agent_message'
+    ? extractResources(item.text || '')
+    : toolResources(item))
   const id = `${turnId}-${item.id}`
   if (item.type === 'agent_message') {
     const message = { role: 'assistant' as const, content: (item.text || '').slice(0, 100000), id }
@@ -75,6 +79,7 @@ export function applyCodexEvent(session: CodexSession, event: any, turnId: strin
   if (item.type === 'file_change' && event.type === 'item.completed' && item.status !== 'failed') {
     for (const change of item.changes || []) {
       if (change.path && !session.filesChanged.includes(change.path)) session.filesChanged.push(change.path)
+      if (change.path) session.resources = mergeResources(session.resources || [], [{ kind: 'file', value: change.path, evidence: 'changed' }])
     }
   }
 }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import ConfettiOverlay from './ConfettiOverlay'
 import MCPDialog from './MCPDialog'
+import ConversationContext from './ConversationContext'
 import { renderMarkdown } from '../../utils/markdown'
 import type { FileAttachment } from '../../types'
 import { CLAUDE_MODELS, EFFORT_LEVELS, modelLabel, resolveModelId } from '../../lib/models'
@@ -506,6 +507,8 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
             <span className="text-[9px] text-white/20">{Math.round((now - item.startedAt) / 60000)}m ago</span>
           </div>
         </div>
+
+        <ConversationContext key={item.processId} item={item} />
 
         {/* Result text */}
         <div

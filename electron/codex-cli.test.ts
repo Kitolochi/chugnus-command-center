@@ -49,5 +49,13 @@ describe('Codex CLI protocol', () => {
     applyCodexEvent(s, { type: 'item.completed', item: { id: 'edit', type: 'file_change', status: 'failed', changes: [{ path: 'app.ts' }] } }, 'turn1')
     expect(s.filesChanged).toEqual([])
     expect(s.activity[0].status).toBe('failed')
+    expect(s.resources?.find(r => r.value === 'app.ts')?.evidence).toBe('tool')
+  })
+  it('keeps resources from earlier turns after the activity list is reset', () => {
+    const s = session()
+    applyCodexEvent(s, { type: 'item.completed', item: { id: 'read', type: 'command_execution', command: 'Get-Content "C:\\My Project\\app.ts"' } }, 'turn1')
+    s.activity = []
+    applyCodexEvent(s, { type: 'item.completed', item: { id: 'web', type: 'mcp_tool_call', arguments: { url: 'https://example.com/editor' } } }, 'turn2')
+    expect(s.resources?.map(r => r.value)).toEqual(expect.arrayContaining(['C:/My Project/app.ts', 'https://example.com/editor']))
   })
 })

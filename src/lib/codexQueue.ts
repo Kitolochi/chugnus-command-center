@@ -14,6 +14,11 @@ export function codexQueueItem(session: CodexSession): CCQueueItem {
     resultText: [...session.messages].reverse().find((m) => m.role === 'assistant')?.content,
     errorMessage: session.error,
     pendingInput: session.pendingTurns?.map((item) => item.options.prompt).join('\n'),
+    resources: session.resources,
+    latestRequest: [...session.messages].reverse().find(m => m.role === 'user')?.content,
+    latestActivity: session.activity[session.activity.length - 1]?.text,
+    stopped: session.status === 'stopped',
+    queuePaused: session.queuePaused,
     filesChanged: session.filesChanged,
     fullLog: [
       ...session.messages.map((m) => ({ type: m.role, text: m.content, timestamp: session.updatedAt })),

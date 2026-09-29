@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useCommandCenterStore, CCQueueItem } from '../../store/commandCenterStore'
 import { Badge } from '../ui'
 import { Loader2, Send, MessageSquare, AlertTriangle, Square } from 'lucide-react'
+import ConversationContext from './ConversationContext'
 
 export default function CollapsedCard({
   item,
@@ -112,6 +113,7 @@ export default function CollapsedCard({
           </p>
         )}
       </div>
+      <div className="px-4"><ConversationContext key={item.processId} item={item} /></div>
       {showInput && (
         <div className="px-4 pb-2.5 flex gap-2 items-center">
           <input

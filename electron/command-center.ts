@@ -6,6 +6,7 @@ import fs from 'fs'
 import { BrowserWindow } from 'electron'
 import { EventEmitter } from 'events'
 import { updateCCHistoryEntry, incrementDailyPrompts } from './database'
+import { extractResources, mergeResources, toolResources, type ConversationContext } from '../src/lib/conversationContext'
 
 // --- Claude binary resolution ---
 
@@ -32,7 +33,7 @@ function resolveClaudeBinary(): string {
 
 // --- Types ---
 
-export interface CCQueueItem {
+export interface CCQueueItem extends ConversationContext {
   processId: string
   sessionId?: string
   projectPath: string
@@ -272,6 +273,8 @@ export function launchProcess(opts: {
     projectName,
     projectColor,
     prompt: opts.prompt,
+    latestRequest: opts.prompt,
+    resources: extractResources(opts.prompt),
     status: 'working',
     filesChanged: [],
     fullLog: [],
@@ -386,9 +389,12 @@ function handleMessage(processId: string, msg: any) {
   if (msg.type === 'assistant' && msg.message?.content) {
     for (const block of msg.message.content) {
       if (block.type === 'text') {
+        item.resources = mergeResources(item.resources || [], extractResources(block.text || ''))
         item.fullLog.push({ type: 'assistant', text: block.text?.slice(0, 500), timestamp })
         item.resultText = block.text?.slice(0, MAX_RESULT_TEXT)
       } else if (block.type === 'tool_use') {
+        item.resources = mergeResources(item.resources || [], toolResources(block.input))
+        item.latestActivity = `${block.name}: ${JSON.stringify(block.input || {}).slice(0, 500)}`
         item.fullLog.push({
           type: 'tool_use',
           toolName: block.name,
@@ -467,6 +473,8 @@ export function respondToProcess(processId: string, response: string) {
 
   incrementDailyPrompts()
   m.item.fullLog.push({ type: 'user', text: response, timestamp: Date.now() })
+  m.item.latestRequest = response
+  m.item.resources = mergeResources(m.item.resources || [], extractResources(response))
   if (m.item.status === 'working') {
     // Already mid-turn — input is buffered in stdin, will be read next turn
     m.item.pendingInput = response

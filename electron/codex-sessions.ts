@@ -7,6 +7,7 @@ import crypto from 'crypto'
 import { applyCodexEvent, buildCodexArgs, resolveCodexBinary } from './codex-cli'
 import type { CodexSession, CodexStatus, CodexTurnOptions } from '../src/types/codex'
 import { readCodexTranscript } from './codex-history'
+import { extractResources, mergeResources } from '../src/lib/conversationContext'
 
 const sessions = new Map<string, CodexSession>()
 const running = new Map<string, ChildProcess>()
@@ -67,6 +68,7 @@ export function initCodexSessions(win: BrowserWindow) {
     if (!Array.isArray(saved)) throw new Error('Expected a session list')
     for (const session of saved) {
       if (!session.id || !Array.isArray(session.messages) || !Array.isArray(session.activity)) throw new Error('Invalid session record')
+      session.resources = mergeResources(session.resources || [], ...session.messages.map(m => extractResources(m.content)), ...session.activity.map(a => extractResources(a.text, 'tool')))
       if (session.status === 'working') {
         session.status = 'stopped'
         session.error = 'The app closed during this turn. Send a follow-up to resume.'
@@ -151,6 +153,7 @@ export function startCodexTurn(opts: CodexTurnOptions, memories: { title: string
   const turnId = crypto.randomUUID()
   const prompt = opts.prompt + (attachments.length ? `\n\nAttached local files:\n${attachments.join('\n')}` : '')
   session.messages.push({ role: 'user', content: prompt, id: `${turnId}-user` })
+  session.resources = mergeResources(session.resources || [], extractResources(opts.prompt), attachments.map(value => ({ kind: 'file', value, evidence: 'attached' })))
   sessions.set(session.id, session)
   // Persist before launching, so even startup/renderer failures retain the task.
   try { persist() } catch (error) {

@@ -1,3 +1,5 @@
+import type { ConversationResource } from '../lib/conversationContext'
+
 export type CodexAccess = 'read-only' | 'workspace-write' | 'danger-full-access'
 
 export interface CodexTurnOptions {
@@ -36,6 +38,7 @@ export interface CodexSession {
   messages: { role: 'user' | 'assistant'; content: string; id: string }[]
   activity: CodexActivity[]
   filesChanged: string[]
+  resources?: ConversationResource[]
   tokensIn: number
   tokensOut: number
   turns: number
