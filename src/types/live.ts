@@ -18,4 +18,5 @@ export interface LiveSession {
   updatedAt: number
   lastPrompt?: string
   latestActivity?: string
+  doing?: string
 }

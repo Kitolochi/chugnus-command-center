@@ -9,6 +9,7 @@ import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
 import HistoryView from './HistoryView'
 import LiveView from './LiveView'
+import AgentsSidebar from './AgentsSidebar'
 import CollabView from './CollabView'
 import CodexTaskCard from './CodexTaskCard'
 import CodexHistory from './CodexHistory'
@@ -71,6 +72,14 @@ export default function CommandCenter() {
     return unsub
   }, [loadQueue, loadProjects, loadHistory])
 
+  // Terminal sessions for the agent sidebar and the Live view
+  useEffect(() => {
+    const { loadLiveSessions } = useCommandCenterStore.getState()
+    void loadLiveSessions()
+    const timer = setInterval(() => void loadLiveSessions(), 3000)
+    return () => clearInterval(timer)
+  }, [])
+
   // Only show sessions that were marked crashed during THIS startup
   const crashedSessions = restoreDismissed ? [] : history.filter((e) => crashedIds.includes(e.id))
 
@@ -128,7 +137,8 @@ export default function CommandCenter() {
 
   return (
     <div className="flex h-full">
-      <div className="flex-1 overflow-y-auto p-6 pt-10">
+      <AgentsSidebar tasks={queue} />
+      <div className="flex-1 min-w-0 overflow-y-auto p-6 pt-10">
         <div className="max-w-3xl mx-auto">
           {/* Pomodoro */}
           <div className="mb-4">

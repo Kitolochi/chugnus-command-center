@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Send, Terminal } from 'lucide-react'
 import { Badge, EmptyState } from '../ui'
 import type { LiveMessage, LiveSession } from '../../types'
+import { useCommandCenterStore } from '../../store/commandCenterStore'
+import { statusLabel } from '../../lib/liveStatus'
 
-const LIST_POLL_MS = 3000
 const MESSAGES_POLL_MS = 2000
 
 function ago(ms: number, now: number): string {
@@ -15,12 +16,6 @@ function ago(ms: number, now: number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`
 }
 
-function statusLabel(status: string): { text: string; color: string; dot: string } {
-  if (status === 'busy')
-    return { text: 'Working', color: 'text-accent-emerald', dot: 'bg-accent-emerald animate-pulse' }
-  if (status === 'idle') return { text: 'Waiting for you', color: 'text-accent-amber', dot: 'bg-accent-amber' }
-  return { text: status, color: 'text-white/40', dot: 'bg-white/30' }
-}
 
 function LiveMessages({ session }: { session: LiveSession }) {
   const [messages, setMessages] = useState<LiveMessage[] | null>(null)
@@ -125,28 +120,20 @@ function LiveReply({ session }: { session: LiveSession }) {
 }
 
 export default function LiveView() {
-  const [sessions, setSessions] = useState<LiveSession[] | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+  // CommandCenter polls the list; this view and the agent sidebar share it.
+  const sessions = useCommandCenterStore((s) => s.liveSessions)
+  const openId = useCommandCenterStore((s) => s.liveOpenId)
+  const setOpenId = useCommandCenterStore((s) => s.setLiveOpenId)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    let active = true
-    const load = () =>
-      window.electronAPI
-        .liveList()
-        .then((next) => {
-          if (!active) return
-          setSessions(next)
-          setNow(Date.now())
-        })
-        .catch(() => active && setSessions([]))
-    load()
-    const timer = setInterval(load, LIST_POLL_MS)
-    return () => {
-      active = false
-      clearInterval(timer)
-    }
+    const timer = setInterval(() => setNow(Date.now()), 3000)
+    return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (openId) document.getElementById(`live-${openId}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [openId])
 
   if (!sessions) return <p className="text-[11px] text-white/30">Looking for open terminals...</p>
   if (sessions.length === 0)
@@ -170,7 +157,11 @@ export default function LiveView() {
         const status = statusLabel(session.status)
         const open = openId === session.sessionId
         return (
-          <div key={session.sessionId} className="bg-surface-1 border border-white/[0.04] rounded-lg">
+          <div
+            key={session.sessionId}
+            id={`live-${session.sessionId}`}
+            className={`bg-surface-1 border rounded-lg ${open ? 'border-accent-blue/25' : 'border-white/[0.04]'}`}
+          >
             <button
               onClick={() => setOpenId(open ? null : session.sessionId)}
               className="w-full text-left px-4 py-2.5 flex items-start gap-3"

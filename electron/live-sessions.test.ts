@@ -36,6 +36,7 @@ describe('parseSessionTail', () => {
     expect(parseSessionTail(text)).toEqual({
       title: 'Cold DM run',
       lastPrompt: 'send the cold dms',
+      doing: 'Picking up after a summary',
       messages: [
         { role: 'user', text: 'send the cold dms', timestamp: 't1' },
         { role: 'assistant', text: 'Starting now.', timestamp: undefined },
@@ -90,6 +91,7 @@ describe('listLiveSessions', () => {
       projectName: 'my.project',
       status: 'busy',
       latestActivity: 'Render started.',
+      doing: 'Render started.',
     })
     expect(sessions[0].updatedAt).toBeGreaterThan(5)
   })

@@ -2,6 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import type { LiveMessage, LiveSession } from '../src/types/live'
+import { describeTool, firstSentence } from '../src/lib/describeActivity'
 
 // Every interactive Claude Code process writes ~/.claude/sessions/<pid>.json (session id, cwd, busy/idle status)
 // and appends its conversation to ~/.claude/projects/<encoded cwd>/<session id>.jsonl. Session files reach
@@ -15,6 +16,8 @@ const MAX_MESSAGES = 40
 interface TailSummary {
   title?: string
   lastPrompt?: string
+  /** A few words on the latest step: the last tool call, or the first sentence of the last reply. */
+  doing?: string
   messages: LiveMessage[]
 }
 
@@ -33,6 +36,7 @@ export function parseSessionTail(text: string): TailSummary {
   let customTitle: string | undefined
   let aiTitle: string | undefined
   let lastPrompt: string | undefined
+  let doing: string | undefined
   const messages: LiveMessage[] = []
   for (const line of text.split('\n')) {
     if (!line.trim()) continue
@@ -50,6 +54,7 @@ export function parseSessionTail(text: string): TailSummary {
     const timestamp = record.timestamp
     if (record.isCompactSummary) {
       messages.push({ role: 'tool', text: 'Earlier messages were summarized', timestamp })
+      doing = 'Picking up after a summary'
       continue
     }
     if (record.type === 'user') {
@@ -63,21 +68,25 @@ export function parseSessionTail(text: string): TailSummary {
                 .join('\n')
             : ''
       // Tool results carry no text blocks; runtime wrappers (<command-name>, <local-command-stdout>) start with '<'.
-      if (typed.trim() && !typed.trimStart().startsWith('<'))
+      if (typed.trim() && !typed.trimStart().startsWith('<')) {
         messages.push({ role: 'user', text: typed.slice(0, MAX_TEXT), timestamp })
+        doing = 'Reading your message'
+      }
       continue
     }
     if (!Array.isArray(content)) continue
     for (const block of content) {
       if (block.type === 'text' && block.text?.trim()) {
         messages.push({ role: 'assistant', text: block.text.slice(0, MAX_TEXT), timestamp })
+        doing = firstSentence(block.text)
       } else if (block.type === 'tool_use') {
         const detail = shortInput(block.input)
         messages.push({ role: 'tool', text: detail ? `${block.name}: ${detail}` : block.name, timestamp })
+        doing = describeTool(block.name, block.input)
       }
     }
   }
-  return { title: customTitle || aiTitle, lastPrompt, messages }
+  return { title: customTitle || aiTitle, lastPrompt, doing, messages }
 }
 
 function readTail(file: string, size: number, bytes: number): string {
@@ -180,6 +189,7 @@ export function listLiveSessions(opts: { claudeDir?: string; exclude?: Set<strin
       startedAt: entry.startedAt || 0,
       updatedAt: Math.max(entry.statusUpdatedAt || entry.updatedAt || 0, tail?.mtimeMs || 0),
       lastPrompt: tail?.summary.lastPrompt,
+      doing: tail?.summary.doing,
       latestActivity: last ? (last.role === 'user' ? `You: ${lastLine}` : lastLine) : undefined,
     })
   }

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CollabSession } from '../types'
+import type { CollabSession, LiveSession } from '../types'
 import type { ConversationContext } from '../lib/conversationContext'
 
 export interface CCQueueItem extends ConversationContext {
@@ -67,6 +67,12 @@ interface CommandCenterState {
   selectedProject: string | null
   launchPrefilledProject: string | null
 
+  // Terminal sessions running outside the app (Live view + agent sidebar)
+  liveSessions: LiveSession[] | null
+  liveOpenId: string | null
+  loadLiveSessions: () => Promise<void>
+  setLiveOpenId: (sessionId: string | null) => void
+
   // Collab state
   collabSession: CollabSession | null
   collabHistory: CollabSession[]
@@ -101,8 +107,6 @@ interface CommandCenterState {
   killCollab: () => Promise<void>
   loadCollabHistory: () => Promise<void>
   updateCollabSession: (session: CollabSession) => void
-
-
 }
 
 export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
@@ -115,8 +119,20 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
   focusId: null,
   selectedProject: null,
   launchPrefilledProject: null,
+  liveSessions: null,
+  liveOpenId: null,
   collabSession: null,
   collabHistory: [],
+
+  loadLiveSessions: async () => {
+    try {
+      set({ liveSessions: await window.electronAPI.liveList() })
+    } catch {
+      set({ liveSessions: [] })
+    }
+  },
+
+  setLiveOpenId: (sessionId) => set({ liveOpenId: sessionId }),
 
   loadQueue: async () => {
     const queue = await window.electronAPI.ccGetQueue()
@@ -211,5 +227,4 @@ export const useCommandCenterStore = create<CommandCenterState>((set, get) => ({
       set({ collabSession: session })
     }
   },
-
 }))
