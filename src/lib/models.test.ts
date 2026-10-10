@@ -28,6 +28,11 @@ describe('model registry', () => {
 describe('priceFor', () => {
   it('returns current pricing for an exact id', () => {
     expect(priceFor('claude-fable-5-1')).toEqual({ input: 10, output: 50 })
+    expect(priceFor('claude-opus-5-5')).toEqual({ input: 4, output: 20 })
+    expect(priceFor('claude-sonnet-5-5')).toEqual({ input: 2, output: 10 })
+  })
+
+  it('keeps Opus 5 pricing for old logs after the 5.5 release', () => {
     expect(priceFor('claude-opus-5')).toEqual({ input: 5, output: 25 })
   })
 
@@ -42,26 +47,28 @@ describe('priceFor', () => {
   })
 
   it('falls back to Sonnet pricing for unknown models', () => {
-    expect(priceFor('<synthetic>')).toEqual(priceFor('claude-sonnet-5'))
+    expect(priceFor('<synthetic>')).toEqual(priceFor('claude-sonnet-5-5'))
   })
 })
 
 describe('resolveModelId', () => {
   it('turns an alias into the current id, case-insensitive', () => {
     expect(resolveModelId('fable')).toBe('claude-fable-5-1')
-    expect(resolveModelId('OPUS')).toBe('claude-opus-5')
-    expect(resolveModelId('sonnet')).toBe('claude-sonnet-5')
+    expect(resolveModelId('OPUS')).toBe('claude-opus-5-5')
+    expect(resolveModelId('sonnet')).toBe('claude-sonnet-5-5')
     expect(resolveModelId('haiku')).toBe(FAST_MODEL)
   })
 
   it('keeps a current full id as is', () => {
-    expect(resolveModelId('claude-opus-5')).toBe('claude-opus-5')
+    expect(resolveModelId('claude-opus-5-5')).toBe('claude-opus-5-5')
   })
 
   it('upgrades a retired id saved in settings to its current successor', () => {
-    expect(resolveModelId('claude-sonnet-4-5-20250929')).toBe('claude-sonnet-5')
-    expect(resolveModelId('claude-opus-4-6')).toBe('claude-opus-5')
-    expect(resolveModelId('claude-opus-4-7')).toBe('claude-opus-5')
+    expect(resolveModelId('claude-sonnet-4-5-20250929')).toBe('claude-sonnet-5-5')
+    expect(resolveModelId('claude-opus-4-6')).toBe('claude-opus-5-5')
+    expect(resolveModelId('claude-opus-4-7')).toBe('claude-opus-5-5')
+    expect(resolveModelId('claude-opus-5')).toBe('claude-opus-5-5')
+    expect(resolveModelId('claude-sonnet-5')).toBe('claude-sonnet-5-5')
     expect(resolveModelId('claude-fable-5')).toBe('claude-fable-5-1')
   })
 

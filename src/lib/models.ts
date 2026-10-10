@@ -18,8 +18,8 @@ export interface ClaudeModel {
 
 export const CLAUDE_MODELS: ClaudeModel[] = [
   { id: 'claude-fable-5-1', alias: 'fable', label: 'Fable 5.1', name: 'Claude Fable 5.1', input: 10, output: 50 },
-  { id: 'claude-opus-5', alias: 'opus', label: 'Opus 5', name: 'Claude Opus 5', input: 5, output: 25 },
-  { id: 'claude-sonnet-5', alias: 'sonnet', label: 'Sonnet 5', name: 'Claude Sonnet 5', input: 2, output: 10 },
+  { id: 'claude-opus-5-5', alias: 'opus', label: 'Opus 5.5', name: 'Claude Opus 5.5', input: 4, output: 20 },
+  { id: 'claude-sonnet-5-5', alias: 'sonnet', label: 'Sonnet 5.5', name: 'Claude Sonnet 5.5', input: 2, output: 10 },
   {
     id: 'claude-haiku-4-5-20251001',
     alias: 'haiku',
@@ -32,7 +32,7 @@ export const CLAUDE_MODELS: ClaudeModel[] = [
 
 export const DEFAULT_MODEL = 'claude-fable-5-1'
 export const FAST_MODEL = 'claude-haiku-4-5-20251001'
-export const CHAT_MODEL = 'claude-sonnet-5'
+export const CHAT_MODEL = 'claude-sonnet-5-5'
 
 export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 export type EffortLevel = (typeof EFFORT_LEVELS)[number]
@@ -42,6 +42,8 @@ export const DEFAULT_EFFORT: EffortLevel = 'high'
 // Matched by longest prefix so 'claude-opus-4-6' beats 'claude-opus-4'.
 const LEGACY_PRICING: Record<string, { input: number; output: number }> = {
   'claude-fable-5': { input: 10, output: 50 },
+  'claude-opus-5': { input: 5, output: 25 },
+  'claude-sonnet-5': { input: 2, output: 10 },
   'claude-opus-4-8': { input: 5, output: 25 },
   'claude-opus-4-7': { input: 5, output: 25 },
   'claude-opus-4-6': { input: 5, output: 25 },
@@ -57,8 +59,10 @@ const LEGACY_PRICING: Record<string, { input: number; output: number }> = {
 // Where a retired id lands when it shows up in saved settings.
 const RETIRED_TO_CURRENT: Record<string, string> = {
   'claude-fable-5': 'claude-fable-5-1',
-  'claude-opus-4': 'claude-opus-5',
-  'claude-sonnet-4': 'claude-sonnet-5',
+  'claude-opus-5': 'claude-opus-5-5',
+  'claude-sonnet-5': 'claude-sonnet-5-5',
+  'claude-opus-4': 'claude-opus-5-5',
+  'claude-sonnet-4': 'claude-sonnet-5-5',
   'claude-haiku-4-5': FAST_MODEL,
 }
 
