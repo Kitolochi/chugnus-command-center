@@ -26,6 +26,7 @@ Focused AI command center forked from mega-agenda — agent orchestration, knowl
 - `electron/smart-query.ts` -- RAG-powered Q&A streaming (hybrid search, transparent to consumers)
 - `electron/agents.ts` -- Agent orchestration: heartbeat scheduler, session polling, cost aggregation
 - `electron/command-center.ts` -- Command center process management
+- `electron/live-sessions.ts` -- Open terminal sessions: `~/.claude/sessions/<pid>.json` registry + tail of each session JSONL
 - `electron/ipc/` -- 8 handler modules registered via `registerAllHandlers()`
 - `src/App.tsx` -- Root component with tab navigation
 - `src/store/` -- Zustand stores: appStore, agentStore, sessionsStore, commandCenterStore
@@ -50,7 +51,7 @@ Focused AI command center forked from mega-agenda — agent orchestration, knowl
 - `npm run format` -- Prettier
 
 ## Tabs
-- **Command Center** -- Queue, history, CLI sessions with resume, launch card
+- **Command Center** -- Queue, Live (open terminal sessions, read only), history, CLI sessions with resume, launch card
 - **Agents** -- Agent orchestration, issues kanban, heartbeat scheduling, cost dashboard, run history
 - **Memories** -- Memory extraction, topics, health monitoring, auto-pruning
 - **Sessions** -- CLI session analytics, heatmap, search
