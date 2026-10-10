@@ -1,3 +1,7 @@
+import type { LiveMessage, LiveSession } from './live'
+
+export type { LiveMessage, LiveSession } from './live'
+
 // === LLM Settings ===
 
 export type LLMProvider = 'claude' | 'gemini' | 'groq' | 'openrouter' | 'chatgpt' | 'claudeProxy'
@@ -749,6 +753,8 @@ export interface ElectronAPI {
   ccGetLog: (opts: { processId: string }) => Promise<any[]>
   ccGetHistory: (opts?: { filter?: string; limit?: number }) => Promise<any[]>
   ccGetCrashedIds: () => Promise<string[]>
+  liveList: () => Promise<LiveSession[]>
+  liveMessages: (opts: { sessionId: string; cwd: string }) => Promise<LiveMessage[]>
   ccGetDailyPrompts: () => Promise<{ date: string; count: number }>
   ccGetProjects: () => Promise<any[]>
   ccGetProjectDescription: (opts: { projectPath: string }) => Promise<string>

@@ -28,6 +28,7 @@ import {
 } from '../database'
 import type { CCSettings } from '../database'
 import { getProjectDescription } from '../cli-logs'
+import { listLiveSessions, getLiveMessages } from '../live-sessions'
 
 export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
   initCommandCenter(mainWindow)
@@ -159,6 +160,15 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('cc:get-history', (_, opts?: { filter?: string; limit?: number; offset?: number }) => {
     return getCCHistory(opts?.filter, opts?.limit)
+  })
+
+  ipcMain.handle('live:list', () => {
+    const managed = new Set(getQueue().map((item) => item.sessionId).filter((id): id is string => !!id))
+    return listLiveSessions({ exclude: managed })
+  })
+
+  ipcMain.handle('live:messages', (_, opts: { sessionId: string; cwd: string }) => {
+    return getLiveMessages(opts)
   })
 
   ipcMain.handle('cc:get-crashed-ids', () => {
