@@ -34,7 +34,8 @@ export const DEFAULT_MODEL = 'claude-fable-5-1'
 export const FAST_MODEL = 'claude-haiku-4-5-20251001'
 export const CHAT_MODEL = 'claude-sonnet-5-5'
 
-export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+// 'ultracode' is a CLI-only level (`claude --effort ultracode`): xhigh effort plus multi-agent workflows.
+export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultracode'] as const
 export type EffortLevel = (typeof EFFORT_LEVELS)[number]
 export const DEFAULT_EFFORT: EffortLevel = 'high'
 
