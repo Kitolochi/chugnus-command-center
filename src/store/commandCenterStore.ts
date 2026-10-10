@@ -60,7 +60,7 @@ interface CommandCenterState {
   queue: CCQueueItem[]
   history: CCHistoryEntry[]
   historyFilter: string | null
-  activeView: 'queue' | 'history' | 'collab' | 'codex'
+  activeView: 'queue' | 'live' | 'history' | 'collab' | 'codex'
   launchOpen: boolean
   projects: KnownProject[]
   focusId: string | null
@@ -84,7 +84,7 @@ interface CommandCenterState {
   dismiss: (processId: string) => Promise<void>
   park: (processId: string) => Promise<void>
   kill: (processId: string) => Promise<void>
-  setActiveView: (view: 'queue' | 'history' | 'collab' | 'codex') => void
+  setActiveView: (view: 'queue' | 'live' | 'history' | 'collab' | 'codex') => void
   setHistoryFilter: (filter: string | null) => void
   setLaunchOpen: (open: boolean) => void
   setFocusId: (id: string | null) => void

@@ -8,6 +8,7 @@ import PomodoroWidget from './PomodoroWidget'
 import FocusCard from './FocusCard'
 import CollapsedCard from './CollapsedCard'
 import HistoryView from './HistoryView'
+import LiveView from './LiveView'
 import CollabView from './CollabView'
 import CodexTaskCard from './CodexTaskCard'
 import CodexHistory from './CodexHistory'
@@ -192,6 +193,14 @@ export default function CommandCenter() {
                   Queue
                 </button>
                 <button
+                  onClick={() => setActiveView('live')}
+                  className={`px-2.5 py-1 text-[10px] font-accent tracking-wide rounded-md transition-all ${
+                    activeView === 'live' ? 'bg-surface-4 text-white/90' : 'text-white/40 hover:text-white/60'
+                  }`}
+                >
+                  Live
+                </button>
+                <button
                   onClick={() => (isCodex ? useCodexStore.setState({ history: true }) : setActiveView('history'))}
                   className={`px-2.5 py-1 text-[10px] font-accent tracking-wide rounded-md transition-all ${
                     activeView === 'history' || (isCodex && codex.history)
@@ -253,6 +262,8 @@ export default function CommandCenter() {
           )}
           {isCodex && codex.history ? (
             <CodexHistory />
+          ) : activeView === 'live' ? (
+            <LiveView />
           ) : activeView === 'collab' ? (
             <CollabView />
           ) : activeView === 'queue' || isCodex ? (
