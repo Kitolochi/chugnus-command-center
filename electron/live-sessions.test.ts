@@ -36,7 +36,7 @@ describe('parseSessionTail', () => {
     expect(parseSessionTail(text)).toEqual({
       title: 'Cold DM run',
       lastPrompt: 'send the cold dms',
-      doing: 'Picking up after a summary',
+      doing: 'Updating its plan',
       messages: [
         { role: 'user', text: 'send the cold dms', timestamp: 't1' },
         { role: 'assistant', text: 'Starting now.', timestamp: undefined },

@@ -53,8 +53,8 @@ export function parseSessionTail(text: string): TailSummary {
     const content = record.message?.content
     const timestamp = record.timestamp
     if (record.isCompactSummary) {
+      // Auto-compact writes the summary after the last reply, so it says nothing about what the agent is doing.
       messages.push({ role: 'tool', text: 'Earlier messages were summarized', timestamp })
-      doing = 'Picking up after a summary'
       continue
     }
     if (record.type === 'user') {
