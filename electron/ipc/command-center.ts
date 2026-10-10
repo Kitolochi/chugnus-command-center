@@ -29,6 +29,7 @@ import {
 import type { CCSettings } from '../database'
 import { getProjectDescription } from '../cli-logs'
 import { listLiveSessions, getLiveMessages } from '../live-sessions'
+import { typeIntoSession } from '../live-reply'
 
 export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
   initCommandCenter(mainWindow)
@@ -163,12 +164,23 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
   })
 
   ipcMain.handle('live:list', () => {
-    const managed = new Set(getQueue().map((item) => item.sessionId).filter((id): id is string => !!id))
+    const managed = new Set(
+      getQueue()
+        .map((item) => item.sessionId)
+        .filter((id): id is string => !!id)
+    )
     return listLiveSessions({ exclude: managed })
   })
 
   ipcMain.handle('live:messages', (_, opts: { sessionId: string; cwd: string }) => {
     return getLiveMessages(opts)
+  })
+
+  ipcMain.handle('live:reply', async (_, opts: { pid: number; sessionId: string; text: string }) => {
+    // Only type into a process that is a live Claude session right now, never an arbitrary pid.
+    const target = listLiveSessions().find((s) => s.pid === opts.pid && s.sessionId === opts.sessionId)
+    if (!target) throw new Error('That session is no longer open')
+    await typeIntoSession(target.pid, opts.text)
   })
 
   ipcMain.handle('cc:get-crashed-ids', () => {

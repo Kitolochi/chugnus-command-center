@@ -755,6 +755,7 @@ export interface ElectronAPI {
   ccGetCrashedIds: () => Promise<string[]>
   liveList: () => Promise<LiveSession[]>
   liveMessages: (opts: { sessionId: string; cwd: string }) => Promise<LiveMessage[]>
+  liveReply: (opts: { pid: number; sessionId: string; text: string }) => Promise<void>
   ccGetDailyPrompts: () => Promise<{ date: string; count: number }>
   ccGetProjects: () => Promise<any[]>
   ccGetProjectDescription: (opts: { projectPath: string }) => Promise<string>

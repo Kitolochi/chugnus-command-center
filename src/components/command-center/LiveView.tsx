@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Terminal } from 'lucide-react'
+import { ChevronDown, ChevronRight, Send, Terminal } from 'lucide-react'
 import { Badge, EmptyState } from '../ui'
 import type { LiveMessage, LiveSession } from '../../types'
 
@@ -67,6 +67,63 @@ function LiveMessages({ session }: { session: LiveSession }) {
   )
 }
 
+function LiveReply({ session }: { session: LiveSession }) {
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  const send = async () => {
+    if (!text.trim() || sending) return
+    setSending(true)
+    setResult(null)
+    try {
+      await window.electronAPI.liveReply({ pid: session.pid, sessionId: session.sessionId, text })
+      setText('')
+      setResult({ ok: true, message: session.status === 'busy' ? 'Sent. It runs after the current reply.' : 'Sent.' })
+    } catch (err: any) {
+      setResult({
+        ok: false,
+        message: String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''),
+      })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="border-t border-white/[0.04] px-4 py-2.5">
+      <div className="flex items-center gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void send()
+          }}
+          placeholder="Reply in this terminal..."
+          className="flex-1 min-w-0 bg-surface-2 border border-white/[0.06] rounded-lg px-3 py-1.5 text-[11px] text-white/90 placeholder-white/20 focus:outline-none focus:border-accent-blue/40"
+        />
+        <button
+          onClick={() => void send()}
+          disabled={!text.trim() || sending}
+          aria-label="Send reply"
+          className="p-1.5 rounded-md text-accent-blue hover:bg-accent-blue/10 disabled:text-white/20 disabled:hover:bg-transparent transition-colors"
+        >
+          <Send size={13} />
+        </button>
+      </div>
+      <p
+        className={`mt-1 text-[9px] ${result ? (result.ok ? 'text-accent-emerald' : 'text-accent-red') : 'text-white/25'}`}
+      >
+        {sending
+          ? 'Typing into the terminal...'
+          : result
+            ? result.message
+            : 'Types your words into the terminal and presses Enter, as if you typed them there.'}
+      </p>
+    </div>
+  )
+}
+
 export default function LiveView() {
   const [sessions, setSessions] = useState<LiveSession[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -107,7 +164,7 @@ export default function LiveView() {
   return (
     <div className="space-y-2">
       <p className="text-[10px] font-mono text-white/40 px-1">
-        {sessions.length} open · {working} working · read only, reply in the terminal
+        {sessions.length} open · {working} working
       </p>
       {sorted.map((session) => {
         const status = statusLabel(session.status)
@@ -139,7 +196,12 @@ export default function LiveView() {
                 )}
               </div>
             </button>
-            {open && <LiveMessages session={session} />}
+            {open && (
+              <>
+                <LiveMessages session={session} />
+                <LiveReply session={session} />
+              </>
+            )}
           </div>
         )
       })}

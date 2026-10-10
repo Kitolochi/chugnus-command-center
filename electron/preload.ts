@@ -192,6 +192,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ccGetCrashedIds: () => ipcRenderer.invoke('cc:get-crashed-ids') as Promise<string[]>,
   liveList: () => ipcRenderer.invoke('live:list'),
   liveMessages: (opts: { sessionId: string; cwd: string }) => ipcRenderer.invoke('live:messages', opts),
+  liveReply: (opts: { pid: number; sessionId: string; text: string }) => ipcRenderer.invoke('live:reply', opts),
   ccGetDailyPrompts: () => ipcRenderer.invoke('cc:get-daily-prompts') as Promise<{ date: string; count: number }>,
   ccGetProjects: () => ipcRenderer.invoke('cc:get-projects'),
   ccGetProjectDescription: (opts: { projectPath: string }) => ipcRenderer.invoke('cc:get-project-description', opts),

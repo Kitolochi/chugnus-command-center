@@ -103,3 +103,11 @@ describe('listLiveSessions', () => {
     expect(getLiveMessages({ sessionId: 'missing', cwd, claudeDir })).toEqual([])
   })
 })
+
+describe('prepareReply', () => {
+  it('turns a multi-line reply into one line and trims it', async () => {
+    const { prepareReply } = await import('./live-reply')
+    expect(prepareReply('  yes do it\n\n  and push  \r\n')).toBe('yes do it and push')
+    expect(prepareReply('x'.repeat(9000))).toHaveLength(8000)
+  })
+})
