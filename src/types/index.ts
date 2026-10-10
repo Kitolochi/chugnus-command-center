@@ -762,9 +762,14 @@ export interface ElectronAPI {
   ccBrowseProject: () => Promise<{ path: string; name: string } | null>
   ccCreateProject: (opts: { name: string }) => Promise<{ path: string; name: string } | null>
   ccExecShell: (opts: { command: string; cwd: string }) => Promise<{ stdout: string; stderr: string; code: number }>
-  ccGetSettings: () => Promise<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean }>
+  ccGetSettings: () => Promise<{
+    defaultEffort: string
+    defaultModel: string
+    autoInferModel: boolean
+    startMaximized: boolean
+  }>
   ccSaveSettings: (
-    updates: Partial<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean }>
+    updates: Partial<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean; startMaximized: boolean }>
   ) => Promise<any>
   ccAnalyzeSession: (opts: { sessionId: string; projectPath: string }) => Promise<{
     filePath: string
@@ -827,6 +832,7 @@ export interface ElectronAPI {
   // Window controls
   closeWindow: () => void
   minimizeWindow: () => void
+  toggleMaximizeWindow: () => void
 
   // Usage Coach
   coachToggle: (enabled: boolean) => Promise<void>

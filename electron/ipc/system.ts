@@ -214,6 +214,11 @@ export function registerSystemHandlers(mainWindow: BrowserWindow) {
     mainWindow?.minimize()
   })
 
+  ipcMain.on('toggle-maximize-window', () => {
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize()
+    else mainWindow?.maximize()
+  })
+
   // Notifications
   ipcMain.handle('show-notification', (_, title: string, body: string) => {
     new Notification({ title, body }).show()

@@ -276,6 +276,7 @@ export interface CCSettings {
   defaultEffort: EffortLevel
   defaultModel: string
   autoInferModel: boolean
+  startMaximized: boolean
 }
 
 export interface TelegramSettings {
@@ -856,6 +857,7 @@ export function initDatabase(): Database {
       defaultEffort: DEFAULT_EFFORT,
       defaultModel: DEFAULT_MODEL,
       autoInferModel: true,
+      startMaximized: false,
     }
     saveDatabase()
   }
@@ -2312,13 +2314,14 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
 
 // CC Settings
 export function getCCSettings(): CCSettings {
-  return { ...db.ccSettings }
+  return { startMaximized: false, ...db.ccSettings }
 }
 
 export function saveCCSettings(updates: Partial<CCSettings>): CCSettings {
   if (updates.defaultEffort !== undefined) db.ccSettings.defaultEffort = updates.defaultEffort
   if (updates.defaultModel !== undefined) db.ccSettings.defaultModel = updates.defaultModel
   if (updates.autoInferModel !== undefined) db.ccSettings.autoInferModel = updates.autoInferModel
+  if (updates.startMaximized !== undefined) db.ccSettings.startMaximized = updates.startMaximized
   saveDatabase()
   return getCCSettings()
 }

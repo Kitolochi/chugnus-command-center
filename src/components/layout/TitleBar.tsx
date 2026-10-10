@@ -17,6 +17,16 @@ export default function TitleBar() {
           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 10 1"><rect width="10" height="1" /></svg>
         </button>
         <button
+          onClick={() => window.electronAPI.toggleMaximizeWindow()}
+          title="Maximize or restore (double-click the title bar also works)"
+          aria-label="Maximize or restore"
+          className="w-6 h-6 rounded-md hover:bg-white/[0.1] flex items-center justify-center text-white/30 hover:text-white/60 transition-all duration-200 hover:scale-110 active:scale-90"
+        >
+          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 10 10">
+            <rect x="1" y="1" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+          </svg>
+        </button>
+        <button
           onClick={() => window.electronAPI.closeWindow()}
           className="w-6 h-6 rounded-md hover:bg-accent-red/20 flex items-center justify-center text-white/30 hover:text-accent-red transition-all duration-200 hover:scale-110 active:scale-90"
         >

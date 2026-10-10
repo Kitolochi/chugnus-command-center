@@ -265,6 +265,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window controls
   closeWindow: () => ipcRenderer.send('close-window'),
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
+  toggleMaximizeWindow: () => ipcRenderer.send('toggle-maximize-window'),
 
   // Usage Coach
   coachToggle: (enabled: boolean) => ipcRenderer.invoke('coach:toggle', enabled),

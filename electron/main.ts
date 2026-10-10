@@ -41,7 +41,7 @@ process.on('warning', (w) => {
   logCrash(`WARN: ${w.name}: ${w.message}`)
 })
 import { spawn } from 'child_process'
-import { initDatabase } from './database'
+import { initDatabase, getCCSettings } from './database'
 import { initEmbeddingModel, getEmbeddingStatus } from './embeddings'
 import { startHealthMonitor } from './memory-health'
 import { loadVectorIndex, rebuildIndex } from './vector-store'
@@ -142,6 +142,7 @@ function createWindow() {
 
   // Show the window once the page is ready (prevents white flash)
   mainWindow.once('ready-to-show', () => {
+    if (getCCSettings().startMaximized) mainWindow?.maximize()
     mainWindow?.show()
     mainWindow?.focus()
   })

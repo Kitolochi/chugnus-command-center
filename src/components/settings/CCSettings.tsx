@@ -5,12 +5,14 @@ export default function CCSettings() {
   const [effort, setEffort] = useState('high')
   const [model, setModel] = useState<string>(DEFAULT_MODEL)
   const [autoInfer, setAutoInfer] = useState(true)
+  const [startMaximized, setStartMaximized] = useState(false)
 
   useEffect(() => {
     window.electronAPI.ccGetSettings().then((s) => {
       setEffort(s.defaultEffort)
       setModel(s.defaultModel)
       setAutoInfer(s.autoInferModel)
+      setStartMaximized(s.startMaximized)
     })
   }, [])
 
@@ -85,6 +87,30 @@ export default function CCSettings() {
             <span
               className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
                 autoInfer ? 'left-4 bg-accent-emerald' : 'left-0.5 bg-white/30'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Open maximized toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-white/70">Open maximized</span>
+            <p className="text-[9px] text-white/30">Fill the screen every time the app starts</p>
+          </div>
+          <button
+            onClick={() => {
+              const next = !startMaximized
+              setStartMaximized(next)
+              save({ startMaximized: next })
+            }}
+            className={`relative w-8 h-4 rounded-full transition-colors ${
+              startMaximized ? 'bg-accent-emerald/40' : 'bg-surface-3'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
+                startMaximized ? 'left-4 bg-accent-emerald' : 'left-0.5 bg-white/30'
               }`}
             />
           </button>

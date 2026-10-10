@@ -130,6 +130,7 @@ export function installElectronMock() {
     // Window
     closeWindow: () => {},
     minimizeWindow: () => {},
+    toggleMaximizeWindow: () => {},
     onOpenAddModal: noopUnsub as any,
     onTasksUpdated: noopUnsub as any,
 
