@@ -129,6 +129,22 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
   } | null>(null)
   const [shellRunning, setShellRunning] = useState(false)
 
+  // Ultracode only changes at launch, so the toggle restarts the session with the same model and effort.
+  const restartWithUltracode = (on: boolean) => {
+    const sessionId = item.sessionId
+    const projectPath = item.projectPath
+    kill(item.processId)
+    setTimeout(() => {
+      const { launch } = useCommandCenterStore.getState()
+      launch(projectPath, 'Continue where we left off.', {
+        model: item.model,
+        effort: item.effort,
+        ultracode: on,
+        resumeSessionId: sessionId || undefined,
+      })
+    }, 500)
+  }
+
   const handleSlashCommand = async (cmd: string): Promise<boolean> => {
     const parts = cmd.slice(1).trim().split(/\s+/)
     const name = parts[0]?.toLowerCase()
@@ -530,12 +546,40 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
                     {item.effort.charAt(0).toUpperCase() + item.effort.slice(1)}
                   </span>
                 )}
-                {item.ultracode && (
-                  <span className="bg-surface-2 border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[10px] text-accent-emerald font-mono">
-                    Ultracode
-                  </span>
-                )}
               </div>
+            )}
+            {!adapter && item.provider !== 'codex' && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!item.ultracode}
+                aria-label="Ultracode"
+                disabled={item.status === 'working'}
+                onClick={() => restartWithUltracode(!item.ultracode)}
+                title={
+                  item.status === 'working'
+                    ? 'Wait for the current step to finish, then switch ultracode'
+                    : `Ultracode is ${item.ultracode ? 'on' : 'off'}. Click to turn it ${item.ultracode ? 'off' : 'on'} (restarts the session).`
+                }
+                className={`flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] font-mono transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                  item.ultracode
+                    ? 'border-accent-emerald/40 bg-accent-emerald/10 text-accent-emerald'
+                    : 'border-white/[0.06] bg-surface-2 text-white/40 hover:text-white/60'
+                }`}
+              >
+                Ultracode
+                <span
+                  className={`relative w-6 h-3 rounded-full transition-colors ${
+                    item.ultracode ? 'bg-accent-emerald/40' : 'bg-surface-3'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-2 h-2 rounded-full transition-all ${
+                      item.ultracode ? 'left-3.5 bg-accent-emerald' : 'left-0.5 bg-white/30'
+                    }`}
+                  />
+                </span>
+              </button>
             )}
           </div>
           <div className="flex items-center gap-2">
