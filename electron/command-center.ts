@@ -53,6 +53,7 @@ export interface CCQueueItem extends ConversationContext {
   lastActivityAt: number
   model?: string
   effort?: string
+  ultracode?: boolean
 }
 
 export interface CCStreamMessage {
@@ -208,6 +209,7 @@ export function launchProcess(opts: {
   prompt: string
   model?: string
   effort?: string
+  ultracode?: boolean
   maxBudget?: number
   resumeSessionId?: string
 }): CCQueueItem {
@@ -256,6 +258,7 @@ export function launchProcess(opts: {
   }
   if (opts.model) args.push('--model', opts.model)
   if (opts.effort) args.push('--effort', opts.effort)
+  if (opts.ultracode) args.push('--settings', JSON.stringify({ ultracode: true }))
   if (opts.maxBudget) args.push('--max-budget-usd', String(opts.maxBudget))
 
   // Resolve claude binary by platform with fallback detection
@@ -285,6 +288,7 @@ export function launchProcess(opts: {
     lastActivityAt: Date.now(),
     model: opts.model,
     effort: opts.effort,
+    ultracode: opts.ultracode,
   }
 
   const managed: ManagedProcess = { proc, item, buffer: '' }

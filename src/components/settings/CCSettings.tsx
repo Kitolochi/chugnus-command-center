@@ -6,10 +6,12 @@ export default function CCSettings() {
   const [model, setModel] = useState<string>(DEFAULT_MODEL)
   const [autoInfer, setAutoInfer] = useState(true)
   const [startMaximized, setStartMaximized] = useState(false)
+  const [ultracode, setUltracode] = useState(false)
 
   useEffect(() => {
     window.electronAPI.ccGetSettings().then((s) => {
       setEffort(s.defaultEffort)
+      setUltracode(s.defaultUltracode)
       setModel(s.defaultModel)
       setAutoInfer(s.autoInferModel)
       setStartMaximized(s.startMaximized)
@@ -45,6 +47,30 @@ export default function CCSettings() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Ultracode toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-white/70">Ultracode</span>
+            <p className="text-[9px] text-white/30">Multi-agent workflows on top of any effort level</p>
+          </div>
+          <button
+            onClick={() => {
+              const next = !ultracode
+              setUltracode(next)
+              save({ defaultUltracode: next })
+            }}
+            className={`relative w-8 h-4 rounded-full transition-colors ${
+              ultracode ? 'bg-accent-emerald/40' : 'bg-surface-3'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
+                ultracode ? 'left-4 bg-accent-emerald' : 'left-0.5 bg-white/30'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Default model */}

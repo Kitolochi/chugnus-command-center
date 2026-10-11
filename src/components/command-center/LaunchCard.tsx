@@ -35,6 +35,7 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState<string>(isCodex ? '' : DEFAULT_MODEL)
   const [effort, setEffort] = useState<string>(isCodex ? '' : DEFAULT_EFFORT)
+  const [ultracode, setUltracode] = useState(false)
   const selection = useCodexModelSelection(projectPath, model, effort, isCodex)
   const [autoInfer, setAutoInfer] = useState(true)
   const [maxBudget, setMaxBudget] = useState('')
@@ -53,6 +54,7 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
       .then((s) => {
         setModel(resolveModelId(s.defaultModel))
         setEffort(s.defaultEffort)
+        setUltracode(s.defaultUltracode)
         setAutoInfer(s.autoInferModel)
       })
       .catch((err) => setError(String(err)))
@@ -126,6 +128,7 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
       await launch(projectPath, prompt.trim(), {
         model,
         effort,
+        ultracode,
         maxBudget: maxBudget ? parseFloat(maxBudget) : undefined,
       })
     } catch (err) {
@@ -319,6 +322,31 @@ export default function LaunchCard({ provider = 'claude' }: { provider?: 'claude
             )}
           </div>
         </div>
+
+        {!isCodex && (
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <span className="text-[11px] text-white/50 font-medium">Ultracode</span>
+              <p className="text-[9px] text-white/30">Multi-agent workflows on top of any effort level</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={ultracode}
+              aria-label="Ultracode"
+              onClick={() => setUltracode(!ultracode)}
+              className={`relative w-8 h-4 rounded-full transition-colors ${
+                ultracode ? 'bg-accent-emerald/40' : 'bg-surface-3'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
+                  ultracode ? 'left-4 bg-accent-emerald' : 'left-0.5 bg-white/30'
+                }`}
+              />
+            </button>
+          </div>
+        )}
 
         {isCodex && (
           <details className="mb-4 text-[10px] text-white/40">

@@ -20,8 +20,8 @@ describe('model registry', () => {
     }
   })
 
-  it('includes xhigh between high and max, and ultracode last', () => {
-    expect([...EFFORT_LEVELS]).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultracode'])
+  it('includes xhigh between high and max, and leaves ultracode out (it is a separate switch)', () => {
+    expect([...EFFORT_LEVELS]).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
   })
 })
 

@@ -22,6 +22,7 @@ export interface CCQueueItem extends ConversationContext {
   lastActivityAt: number
   model?: string
   effort?: string
+  ultracode?: boolean
   provider?: 'codex' | 'claude'
 }
 
@@ -84,7 +85,7 @@ interface CommandCenterState {
   launch: (
     projectPath: string,
     prompt: string,
-    opts?: { model?: string; effort?: string; maxBudget?: number; resumeSessionId?: string }
+    opts?: { model?: string; effort?: string; ultracode?: boolean; maxBudget?: number; resumeSessionId?: string }
   ) => Promise<void>
   respond: (processId: string, response: string) => Promise<void>
   dismiss: (processId: string) => Promise<void>

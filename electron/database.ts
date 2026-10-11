@@ -277,6 +277,7 @@ export interface CCSettings {
   defaultModel: string
   autoInferModel: boolean
   startMaximized: boolean
+  defaultUltracode: boolean
 }
 
 export interface TelegramSettings {
@@ -858,7 +859,16 @@ export function initDatabase(): Database {
       defaultModel: DEFAULT_MODEL,
       autoInferModel: true,
       startMaximized: false,
+      defaultUltracode: false,
     }
+    saveDatabase()
+  }
+
+  // Migrate: ultracode used to be an effort level. It is now its own switch, so the old
+  // level (xhigh effort plus workflows) becomes xhigh with the switch on.
+  if ((db.ccSettings.defaultEffort as string) === 'ultracode') {
+    db.ccSettings.defaultEffort = 'xhigh'
+    db.ccSettings.defaultUltracode = true
     saveDatabase()
   }
 
@@ -2314,7 +2324,7 @@ export function saveLLMSettings(updates: Partial<LLMSettings>): LLMSettings {
 
 // CC Settings
 export function getCCSettings(): CCSettings {
-  return { startMaximized: false, ...db.ccSettings }
+  return { startMaximized: false, defaultUltracode: false, ...db.ccSettings }
 }
 
 export function saveCCSettings(updates: Partial<CCSettings>): CCSettings {
@@ -2322,6 +2332,7 @@ export function saveCCSettings(updates: Partial<CCSettings>): CCSettings {
   if (updates.defaultModel !== undefined) db.ccSettings.defaultModel = updates.defaultModel
   if (updates.autoInferModel !== undefined) db.ccSettings.autoInferModel = updates.autoInferModel
   if (updates.startMaximized !== undefined) db.ccSettings.startMaximized = updates.startMaximized
+  if (updates.defaultUltracode !== undefined) db.ccSettings.defaultUltracode = updates.defaultUltracode
   saveDatabase()
   return getCCSettings()
 }

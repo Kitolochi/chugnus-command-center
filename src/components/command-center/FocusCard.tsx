@@ -167,20 +167,28 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
 
     if (name === 'effort') {
       const valid: string[] = [...EFFORT_LEVELS]
-      if (!arg || !valid.includes(arg)) {
+      const [word, state] = arg.split(' ')
+      const isUltracode = word === 'ultracode'
+      if (!isUltracode && !valid.includes(arg)) {
         showResult(
           '/effort',
-          `Usage: /effort <${valid.join('|')}>\nSets thinking level. Restarts session with new effort.`
+          `Usage: /effort <${valid.join('|')}> or /effort ultracode [on|off]\nSets thinking level or turns ultracode on or off. Restarts session.`
         )
         return true
       }
-      // Kill and relaunch with new effort
+      // Kill and relaunch. Ultracode is a separate switch, so a new effort keeps it as it was.
       const sessionId = item.sessionId
       const projectPath = item.projectPath
+      const effort = isUltracode ? item.effort : arg
+      const ultracode = isUltracode ? state !== 'off' : item.ultracode
       kill(item.processId)
       setTimeout(() => {
         const { launch } = useCommandCenterStore.getState()
-        launch(projectPath, 'Continue where we left off.', { effort: arg, resumeSessionId: sessionId || undefined })
+        launch(projectPath, 'Continue where we left off.', {
+          effort,
+          ultracode,
+          resumeSessionId: sessionId || undefined,
+        })
       }, 500)
       setResponse('')
       return true
@@ -197,7 +205,11 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
       kill(item.processId)
       setTimeout(() => {
         const { launch } = useCommandCenterStore.getState()
-        launch(projectPath, 'Continue where we left off.', { model: modelId, resumeSessionId: sessionId || undefined })
+        launch(projectPath, 'Continue where we left off.', {
+          model: modelId,
+          ultracode: item.ultracode,
+          resumeSessionId: sessionId || undefined,
+        })
       }, 500)
       setResponse('')
       return true
@@ -250,6 +262,7 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
         [
           'Session:',
           `  /effort <${EFFORT_LEVELS.join('|')}>  Set thinking level (restarts)`,
+          '  /effort ultracode [on|off]     Turn ultracode on or off (restarts)',
           `  /model <${MODEL_ALIASES.join('|')}>  Switch model (restarts)`,
           '  /name <label>                  Name this session',
           '  /cost                          Session cost and stats',
@@ -515,6 +528,11 @@ export default function FocusCard({ item, adapter }: { item: CCQueueItem; adapte
                 {item.effort && (
                   <span className="bg-surface-2 border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[10px] text-white/40 font-mono">
                     {item.effort.charAt(0).toUpperCase() + item.effort.slice(1)}
+                  </span>
+                )}
+                {item.ultracode && (
+                  <span className="bg-surface-2 border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[10px] text-accent-emerald font-mono">
+                    Ultracode
                   </span>
                 )}
               </div>

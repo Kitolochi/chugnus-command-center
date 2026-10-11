@@ -44,6 +44,7 @@ export function registerCommandCenterHandlers(mainWindow: BrowserWindow) {
         prompt: string
         model?: string
         effort?: string
+        ultracode?: boolean
         maxBudget?: number
         resumeSessionId?: string
       }

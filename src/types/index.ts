@@ -742,6 +742,7 @@ export interface ElectronAPI {
     prompt: string
     model?: string
     effort?: string
+    ultracode?: boolean
     maxBudget?: number
     resumeSessionId?: string
   }) => Promise<any>
@@ -767,9 +768,16 @@ export interface ElectronAPI {
     defaultModel: string
     autoInferModel: boolean
     startMaximized: boolean
+    defaultUltracode: boolean
   }>
   ccSaveSettings: (
-    updates: Partial<{ defaultEffort: string; defaultModel: string; autoInferModel: boolean; startMaximized: boolean }>
+    updates: Partial<{
+      defaultEffort: string
+      defaultModel: string
+      autoInferModel: boolean
+      startMaximized: boolean
+      defaultUltracode: boolean
+    }>
   ) => Promise<any>
   ccAnalyzeSession: (opts: { sessionId: string; projectPath: string }) => Promise<{
     filePath: string
